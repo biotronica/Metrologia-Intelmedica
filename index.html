@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Metrología · Intelmedica</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Metrología">
+<meta name="theme-color" content="#0B2540">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+:root{--navy:#0B2540;--navy-light:#123863;--teal:#3FA7B3;--teal-dark:#2C8791;--amber:#F2A93B;--bg:#F0F3F6;--card:#fff;--text:#16212C;--muted:#5B6B7A;--border:#DCE3E8;--danger:#D64550;--success:#2E9E5B;--radius:14px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select{font-family:inherit}
+#app{max-width:560px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:linear-gradient(135deg,var(--navy),var(--navy-light));color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 18px 16px;position:sticky;top:0;z-index:20;box-shadow:0 2px 10px rgba(11,37,64,.25)}
+.topbar-row{display:flex;align-items:center;gap:10px}
+.tb-btn{background:rgba(255,255,255,.12);border:none;color:#fff;min-width:34px;height:34px;border-radius:10px;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;padding:0 8px}
+.topbar-title{font-size:17px;font-weight:700;flex:1}
+.topbar-sub{font-size:12.5px;color:#B8CBE0;margin-top:2px}
+.pills{display:flex;gap:6px;margin-top:12px}.pill{height:4px;flex:1;border-radius:3px;background:rgba(255,255,255,.18)}.pill.active{background:var(--amber)}.pill.done{background:var(--teal)}
+.content{flex:1;padding:16px 16px 110px}
+.card{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:14px;border:1px solid var(--border)}
+.card-title{font-size:13px;font-weight:700;color:var(--teal-dark);text-transform:uppercase;letter-spacing:.5px;margin:0 0 12px}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:12px;font-weight:600}
+input,select{display:block;width:100%;margin-top:5px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;font-size:16px;background:#fff;color:var(--text)}
+input:focus,select:focus{outline:2px solid var(--teal);border-color:var(--teal)}
+.g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 10px}.g2>label{min-width:0}input[type=date]{min-width:0;-webkit-appearance:none;appearance:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:12px;padding:13px 16px;font-size:15px;font-weight:700;cursor:pointer;background:var(--teal);color:#fff;text-decoration:none}
+.btn.navy{background:var(--navy)}.btn.ghost{background:#fff;color:var(--navy);border:1px solid var(--border)}.btn.dan{background:#fff;color:var(--danger);border:1px solid #f1c4c8}
+.btn.block{width:100%}.btn.sm{padding:8px 12px;font-size:13px;border-radius:10px}.btn:disabled{opacity:.45;cursor:not-allowed}
+.bottom{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:rgba(240,243,246,.96);backdrop-filter:blur(6px);border-top:1px solid var(--border);z-index:15}
+.bottom .in{max-width:528px;margin:0 auto;display:flex;gap:10px}.bottom .btn{flex:1}
+.eq{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px;background:#fff;cursor:pointer}
+.eq .t{font-weight:700;font-size:15px}.eq .s{font-size:12.5px;color:var(--muted);margin-top:2px}.eq .main{flex:1;min-width:0}
+.chip{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.chip.ok{background:#e3f4ea;color:var(--success)}.chip.warn{background:#fdf1dc;color:#9a6a12}.chip.gray{background:#eef1f4;color:var(--muted)}.chip.err{background:#fbe3e5;color:var(--danger)}
+.cert{display:inline-block;background:var(--navy);color:#fff;border-radius:6px;padding:1px 8px;font-size:12px;font-weight:700;margin-right:6px}
+.lec{display:grid;grid-template-columns:56px repeat(3,1fr);gap:6px;align-items:center}
+.lec input{margin:0;text-align:center;padding:10px 4px}.lec b{font-size:13px;color:var(--muted)}.lec .h{font-size:11.5px;color:var(--muted);text-align:center;font-weight:600}
+.lec .st{text-align:center;font-weight:800;color:var(--navy);background:#eaf1f7;border-radius:8px;padding:8px 2px;font-size:14px}
+.muted{color:var(--muted)}.small{font-size:12.5px}
+.empty{text-align:center;color:var(--muted);padding:22px 8px;font-size:14px}
+.status{font-size:13px;color:var(--muted);margin-top:8px;min-height:18px}
+.hero{text-align:center;padding:30px 10px}.hero img{width:84px;height:84px;border-radius:20px}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);background:#16212C;color:#fff;padding:11px 16px;border-radius:12px;font-size:14px;opacity:0;transition:.25s;z-index:50;max-width:92%;text-align:center;pointer-events:none}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}#toast.err{background:var(--danger)}
+details summary{cursor:pointer;font-weight:700;color:var(--navy);font-size:14px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+<script>
+'use strict';
+/* =================== configuración =================== */
+const CONFIG={
+ CLIENT_ID:'155395780717-8upptag4bmknce6gujv5u2aukgd14u0f.apps.googleusercontent.com',
+ SCOPE:'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets',
+ MANTENIMIENTOS:'1F4xPV_Ot0oJftSvz-GgLEmb6CfI5Mun4',   // carpeta de clientes
+ BASE_CLIENTES:'Base de Clientes - Intelmedica',          // para autocompletar clientes
+ SUBCARPETA:'Calibraciones'                               // carpeta del cliente › Calibraciones › año
+};
+// Plantillas de metrología. Para agregar otra (aspirador, ventilador…) se copia este bloque con
+// las celdas de entrada de esa plantilla.
+const PLANTILLAS={
+ flujo:{nombre:'F-23-P-SC02 PLANTILLA FLUJOMETRO V4.xlsx',busca:'PLANTILLA FLUJOMETRO',hoja:'FLUJOMETRO',tipo:'Flujómetro',equipo:'FLUJOMETRO',unidad:'L/min',nominales:[2,10,15],
+  celdas:{nombre:'B14',contacto:'G14',direccion:'B16',telefono:'G16',lugar:'H34',metrologo:'B107',recepcion:'B128',fecha:'F128',certificado:'J128',tIni:'B132',tFin:'E132',hIni:'B134',hFin:'E134',equipo:'B138',serie:'F138',marca:'B140',activo:'F140',modelo:'B142',ubicacion:'F142'},
+  nomCols:['B','C','D'],nomFila:149,lecFila:150}
+};
+const LUGARES=['En Sitio','Laboratorio de Metrología de INTELMEDICA CORP'];
+const METROLOGOS=['JHON STIVEN DELGADO'];
+const MIME_XLSX='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',FOLDER='application/vnd.google-apps.folder',GSHEET='application/vnd.google-apps.spreadsheet';
+const DRV='https://www.googleapis.com/drive/v3/files',SH='https://sheets.googleapis.com/v4/spreadsheets/',DRVX='&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives';
+
+/* =================== utilidades =================== */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>'q'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const dq=s=>String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+const hoy=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const num=v=>{const s=String(v??'').trim().replace(',','.');return s!==''&&isFinite(Number(s))?Number(s):null};
+const fmtN=x=>x==null?'—':(Math.round(x*1000)/1000).toLocaleString('es-CO');
+const loadLS=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
+const saveLS=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let tt;function toast(m,cls=''){const t=$('#toast');t.textContent=m;t.className='on '+cls;clearTimeout(tt);tt=setTimeout(()=>t.className='',3800)}
+
+/* =================== estado =================== */
+const KEY='metrologia_intelmedica_v1';
+function estadoNuevo(){return{paso:'cliente',tpl:'flujo',cli:{nombre:'',contacto:'',direccion:'',telefono:''},gen:{recepcion:hoy(),fecha:hoy(),lugar:'En Sitio',metrologo:METROLOGOS[0]},eqs:[],editando:'',carpeta:null}}
+let ST=Object.assign(estadoNuevo(),loadLS(KEY)||{});
+let AJ=Object.assign({mant:CONFIG.MANTENIMIENTOS,tplIds:{}},loadLS(KEY+'_aj')||{});
+const guardar=()=>saveLS(KEY,ST);
+let CLIENTES=loadLS(KEY+'_cli')||[];
+const T=()=>PLANTILLAS[ST.tpl];
+function eqNuevo(prev){const t=T();return{id:uid(),certificado:'',equipo:t.equipo,marca:'',modelo:'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:prev?.tIni||'',tFin:prev?.tFin||'',hIni:prev?.hIni||'',hFin:prev?.hFin||'',nom:[...(prev?.nom||t.nominales)],lec:t.nominales.map(()=>['','','','','']),hecho:'',err:''}}
+const faltan=q=>[!String(q.certificado).trim()&&'N.º de certificado',!String(q.serie).trim()&&'serie',!q.nom.every(n=>num(n)!==null)&&'valores nominales',(n=>n&&n+' lectura(s)')(q.lec.flat().filter(v=>num(v)===null).length)].filter(Boolean);
+const completo=q=>!!(String(q.certificado).trim()&&String(q.serie).trim()&&q.nom.every(n=>num(n)!==null)&&q.lec.every(f=>f.every(v=>num(v)!==null)));
+function stats(q,j){const v=q.lec[j].map(num).filter(x=>x!==null);if(!v.length)return null;const p=v.reduce((a,b)=>a+b,0)/v.length,n=num(q.nom[j]);return{p,e:n===null?null:n-p}}
+const chip=q=>q.hecho?'<span class="chip ok">Generado</span>':q.err?'<span class="chip err">Error</span>':completo(q)?'<span class="chip warn">Listo</span>':'<span class="chip gray">Incompleto</span>';
+
+/* =================== Google =================== */
+let token=null,tokenExp=0,tokenClient=null,pend=null;
+try{const t=JSON.parse(sessionStorage.getItem(KEY+'_tok'));if(t&&t.exp>Date.now()){token=t.token;tokenExp=t.exp}}catch(e){}
+const conectado=()=>!!token&&Date.now()<tokenExp;
+class AuthError extends Error{constructor(){super('La sesión de Google expiró. Pulse Conectar.')}}
+function conectar(){
+ return new Promise((res,rej)=>{
+  if(!window.google?.accounts?.oauth2)return rej(new Error('No cargó el inicio de sesión de Google. Revise su conexión.'));
+  if(!tokenClient)tokenClient=google.accounts.oauth2.initTokenClient({client_id:CONFIG.CLIENT_ID,scope:CONFIG.SCOPE,callback:r=>{
+   if(r.error)pend?.rej(new Error('Google: '+r.error));else{token=r.access_token;tokenExp=Date.now()+(r.expires_in-60)*1000;sessionStorage.setItem(KEY+'_tok',JSON.stringify({token,exp:tokenExp}));pend?.res()}pend=null}});
+  pend={res,rej};tokenClient.requestAccessToken();
+ });
+}
+async function api(url,opt={}){
+ if(!conectado())throw new AuthError();
+ const r=await fetch(url,{...opt,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...(opt.headers||{})}});
+ if(r.status===401){token=null;throw new AuthError()}
+ if(!r.ok){const t=await r.text();let m=t;try{m=JSON.parse(t).error.message}catch(e){}throw new Error(`Error ${r.status}: ${m}`.slice(0,220))}
+ return r.status===204?null:r.json();
+}
+async function driveList(q){let out=[],pt='';do{const r=await api(`${DRV}?q=${encodeURIComponent(q)}&fields=nextPageToken,files(id,name,mimeType,parents)&pageSize=1000${pt?'&pageToken='+encodeURIComponent(pt):''}${DRVX}`);out=out.concat(r.files||[]);pt=r.nextPageToken||''}while(pt&&out.length<3000);return out}
+const driveMeta=id=>api(`${DRV}/${encodeURIComponent(id)}?fields=id,name,mimeType,parents&supportsAllDrives=true`);
+async function descargar(id){const r=await fetch(`${DRV}/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true`,{headers:{Authorization:'Bearer '+token}});if(r.status===401){token=null;throw new AuthError()}if(!r.ok)throw new Error('No se pudo descargar la plantilla (HTTP '+r.status+')');return r.blob()}
+async function subir(blob,meta,mime,fileId){
+ const b='mt'+Math.random().toString(36).slice(2),m={...meta};if(fileId)delete m.parents;
+ const body=new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,JSON.stringify(m),`\r\n--${b}\r\nContent-Type: ${mime}\r\n\r\n`,blob,`\r\n--${b}--`]);
+ return api(`https://www.googleapis.com/upload/drive/v3/files${fileId?'/'+encodeURIComponent(fileId):''}?uploadType=multipart&supportsAllDrives=true&fields=id,name`,{method:fileId?'PATCH':'POST',body,headers:{'Content-Type':'multipart/related; boundary='+b}});
+}
+async function subcarpeta(padre,nombre){
+ const fs=await driveList(`'${dq(padre)}' in parents and mimeType='${FOLDER}' and trashed=false`);
+ const f=fs.find(x=>norm(x.name)===norm(nombre));if(f)return f.id;
+ return (await api(`${DRV}?supportsAllDrives=true&fields=id`,{method:'POST',body:JSON.stringify({name:nombre,mimeType:FOLDER,parents:[padre]})})).id;
+}
+async function cargarClientes(){
+ try{
+  const f=await driveList(`name='${dq(CONFIG.BASE_CLIENTES)}' and mimeType='${GSHEET}' and trashed=false`);if(!f.length)return;
+  const r=await api(SH+f[0].id+'/values/'+encodeURIComponent('Clientes!A2:D'));
+  const m=new Map();(r.values||[]).forEach(x=>{if(x[0]&&!m.has(norm(x[0])))m.set(norm(x[0]),{nombre:String(x[0]).trim(),contacto:x[2]||x[1]||'',telefono:x[3]||''})});
+  CLIENTES=[...m.values()].sort((a,b)=>a.nombre.localeCompare(b.nombre));saveLS(KEY+'_cli',CLIENTES);
+ }catch(e){if(e instanceof AuthError)throw e}
+}
+// Carpeta del cliente dentro de MANTENIMIENTOS (por nombre, aunque esté en una subcarpeta).
+const STOP=new Set(['dra','dr','sas','s.a.s','ltda','ips','de','del','la','el','los','las','y','sa','s.a']);
+async function carpetaCliente(){
+ const n=ST.cli.nombre.trim();if(!n)throw new Error('Escriba el nombre del cliente');
+ if(ST.carpeta&&ST.carpeta.cliente===norm(n))return ST.carpeta;
+ const hijos=await driveList(`'${dq(AJ.mant)}' in parents and mimeType='${FOLDER}' and trashed=false`);
+ let f=hijos.find(x=>norm(x.name)===norm(n));
+ if(!f){const tk=norm(n).replace(/[.,]/g,' ').split(' ').filter(t=>t.length>=3&&!STOP.has(t));
+  if(tk.length){const largo=[...tk].sort((a,b)=>b.length-a.length)[0];const c=(await driveList(`mimeType='${FOLDER}' and trashed=false and name contains '${dq(largo)}'`)).filter(x=>tk.filter(t=>norm(x.name).includes(t)).length>=Math.min(2,tk.length));if(c.length===1)f=c[0];else if(c.length>1){ST.candidatos=c.map(x=>({id:x.id,name:x.name}));guardar()}}}
+ if(!f)return null;
+ ST.carpeta={id:f.id,name:f.name,cliente:norm(n)};guardar();return ST.carpeta;
+}
+async function plantilla(){
+ const t=T();let id=AJ.tplIds[ST.tpl];
+ if(!id){let f=await driveList(`name='${dq(t.nombre)}' and trashed=false`);
+  if(!f.length)f=(await driveList(`name contains '${dq(t.busca)}' and trashed=false`)).filter(x=>/\.xlsx$/i.test(x.name));
+  if(!f.length)throw new Error('No se encontró la plantilla "'+t.nombre+'" en Drive');
+  id=f[0].id;AJ.tplIds[ST.tpl]=id;saveLS(KEY+'_aj',AJ)}
+ return descargar(id);
+}
+
+/* =================== generar =================== */
+async function generar(q,est){
+ const t=T(),C=t.celdas,K=ST.cli,G=ST.gen;
+ if(!completo(q))throw new Error('Faltan datos en el equipo');
+ est('Buscando la carpeta del cliente…');
+ const cf=await carpetaCliente();if(!cf)throw new Error('No se encontró la carpeta del cliente en MANTENIMIENTOS. Elíjala en "Carpeta de destino".');
+ const cCal=await subcarpeta(cf.id,CONFIG.SUBCARPETA),cAnio=await subcarpeta(cCal,(G.fecha||hoy()).slice(0,4));
+ est('Copiando la plantilla oficial…');
+ const tpl=await plantilla();
+ const nombre=`${String(q.certificado).trim()} ${t.tipo} ${q.serie&&!/^ni$/i.test(q.serie)?q.serie:(q.activo||'NI')}`.replace(/[\\/:*?"<>|#%]+/g,'-').trim();
+ const tmp=await subir(tpl,{name:nombre+' (temporal)',parents:[cAnio],mimeType:GSHEET},MIME_XLSX);
+ try{
+  const meta=await api(SH+tmp.id+'?fields=sheets.properties(sheetId,title)');
+  const hoja=(meta.sheets.find(s=>s.properties.title===t.hoja)||meta.sheets[0]).properties.title;
+  const d=[],put=(a,v)=>d.push({range:`'${hoja}'!${a}`,values:[[v]]}),txt=v=>{v=String(v??'').trim();return v===''?'NI':v};
+  put(C.nombre,K.nombre.trim());put(C.contacto,K.contacto);put(C.direccion,K.direccion);put(C.telefono,K.telefono);
+  put(C.lugar,G.lugar);if(G.metrologo)put(C.metrologo,G.metrologo);put(C.recepcion,G.recepcion);put(C.fecha,G.fecha);put(C.certificado,String(q.certificado).trim());
+  ['tIni','tFin','hIni','hFin'].forEach(k=>{const n=num(q[k]);put(C[k],n===null?'':n)});
+  put(C.equipo,txt(q.equipo));put(C.serie,txt(q.serie));put(C.marca,txt(q.marca));put(C.activo,txt(q.activo));put(C.modelo,txt(q.modelo));put(C.ubicacion,txt(q.ubicacion));
+  t.nomCols.forEach((col,j)=>{put(col+t.nomFila,num(q.nom[j]));q.lec[j].forEach((v,i)=>put(col+(t.lecFila+i),num(v)))});
+  est('Escribiendo los datos…');
+  await api(SH+tmp.id+'/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data:d})});
+  est('Guardando el Excel…');
+  const r=await fetch(`${DRV}/${encodeURIComponent(tmp.id)}/export?mimeType=${encodeURIComponent(MIME_XLSX)}`,{headers:{Authorization:'Bearer '+token}});
+  if(!r.ok)throw new Error('No se pudo exportar a Excel (HTTP '+r.status+')');
+  const ex=await driveList(`'${dq(cAnio)}' in parents and name='${dq(nombre+'.xlsx')}' and trashed=false`);
+  const fx=await subir(await r.blob(),{name:nombre+'.xlsx',parents:[cAnio]},MIME_XLSX,ex[0]?.id);
+  q.hecho=`https://drive.google.com/file/d/${fx.id}/view`;q.err='';guardar();
+ }finally{api(`${DRV}/${encodeURIComponent(tmp.id)}?supportsAllDrives=true`,{method:'DELETE'}).catch(()=>{})}
+}
+
+/* =================== vistas =================== */
+const PASOS=['cliente','equipos','generar'];
+function topbar(titulo,sub,atras){
+ const i=PASOS.indexOf(ST.paso);
+ return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo}<div class="topbar-sub">${sub}</div></div>
+ ${conectado()?'':'<button class="tb-btn" data-a="conectar" title="Conectar con Google">G</button>'}<button class="tb-btn" data-a="ajustes" title="Ajustes">⚙</button></div>
+ ${i>=0&&!ST.editando?`<div class="pills">${PASOS.map((p,k)=>`<div class="pill ${k<i?'done':k===i?'active':''}"></div>`).join('')}</div>`:''}</div>`;
+}
+const fi=(grp,k,l,v,x='')=>`<label>${l}<input data-g="${grp}" data-k="${k}" value="${esc(v)}" ${x}></label>`;
+function vCliente(){
+ const K=ST.cli,G=ST.gen;
+ return topbar('Metrología','Paso 1 de 3 · Cliente y calibración')+`<div class="content">
+ ${conectado()?'':`<div class="card hero"><img src="icon-192.png" alt=""><h2 style="margin:12px 0 6px">Toma de datos de calibración</h2><p class="muted small">Conéctese con la cuenta de Google de INTELMEDICA para usar la plantilla oficial y guardar en Drive. Puede llenar los datos sin conexión y generar después.</p><button class="btn navy" data-a="conectar">Conectar con Google</button></div>`}
+ <div class="card"><div class="card-title">Plantilla</div><select data-g="st" data-k="tpl">${Object.entries(PLANTILLAS).map(([k,p])=>`<option value="${k}" ${ST.tpl===k?'selected':''}>${esc(p.nombre.replace(/\.xlsx$/,''))}</option>`).join('')}</select></div>
+ <div class="card"><div class="card-title">Datos del cliente</div>
+ ${fi('cli','nombre','Nombre del cliente *',K.nombre,'list="dlCli" autocomplete="off"')}<datalist id="dlCli">${CLIENTES.map(c=>`<option value="${esc(c.nombre)}">`).join('')}</datalist>
+ ${fi('cli','contacto','Contacto',K.contacto)}${fi('cli','direccion','Dirección',K.direccion)}${fi('cli','telefono','Teléfono',K.telefono,'inputmode="tel"')}</div>
+ <div class="card"><div class="card-title">Datos de la calibración</div>
+ <div class="g2">${fi('gen','recepcion','Fecha de recepción',G.recepcion,'type="date"')}${fi('gen','fecha','Fecha de calibración',G.fecha,'type="date"')}</div>
+ <label>Lugar de calibración<select data-g="gen" data-k="lugar">${LUGARES.map(l=>`<option ${G.lugar===l?'selected':''}>${esc(l)}</option>`).join('')}</select></label>
+ ${fi('gen','metrologo','Calibrado por',G.metrologo,'list="dlMet"')}<datalist id="dlMet">${METROLOGOS.map(m=>`<option value="${esc(m)}">`).join('')}</datalist></div></div>
+ <div class="bottom"><div class="in"><button class="btn navy" data-a="paso" data-id="equipos" ${ST.cli.nombre.trim()?'':'disabled'} id="btnSig">Equipos →</button></div></div>`;
+}
+function vEquipos(){
+ const t=T();
+ return topbar('Equipos',`Paso 2 de 3 · ${esc(ST.cli.nombre||'Cliente')}`,'atrasCliente')+`<div class="content">
+ <div class="card"><div class="card-title">${esc(t.tipo)}s (${ST.eqs.length})</div>
+ ${ST.eqs.map((q,i)=>`<div class="eq" data-a="editar" data-id="${q.id}"><div class="main"><div class="t">${q.certificado?`<span class="cert">${esc(q.certificado)}</span>`:''}${i+1}. ${esc(q.equipo)} ${q.marca?'· '+esc(q.marca):''}</div><div class="s">Serie ${esc(q.serie||'—')}${q.activo?' · '+esc(q.activo):''}${q.ubicacion?' · '+esc(q.ubicacion):''}</div></div>${chip(q)}</div>`).join('')||'<div class="empty">Aún no hay equipos. Pulse “+ Agregar”.</div>'}
+ <button class="btn ghost block" data-a="agregar">+ Agregar ${esc(t.tipo.toLowerCase())}</button></div></div>
+ <div class="bottom"><div class="in"><button class="btn ghost" data-a="atrasCliente">‹ Cliente</button><button class="btn navy" data-a="paso" data-id="generar" ${ST.eqs.length?'':'disabled'}>Generar →</button></div></div>`;
+}
+function vEditor(){
+ const q=ST.eqs.find(x=>x.id===ST.editando),t=T();if(!q){ST.editando='';return render()}
+ const qi=(k,l,x='')=>`<label>${l}<input data-q="${k}" value="${esc(q[k])}" ${x}></label>`;
+ const i=ST.eqs.indexOf(q);
+ return topbar(`${esc(t.tipo)} ${i+1}`,esc(ST.cli.nombre),'cerrarEditor')+`<div class="content">
+ <div class="card"><div class="card-title">Certificado e identificación</div>
+ ${qi('certificado','N.º de certificado *','inputmode="numeric" placeholder="Ej. 42710"')}
+ <div class="g2">${qi('equipo','Equipo')}${qi('marca','Fabricante / marca')}${qi('modelo','Modelo')}${qi('serie','Serie * (NI si no tiene)')}${qi('activo','N.º interno / activo','placeholder="NI"')}${qi('ubicacion','Ubicación')}</div></div>
+ <div class="card"><div class="card-title">Condiciones ambientales</div>
+ <div class="g2">${qi('tIni','Temp. inicial (°C)','inputmode="decimal"')}${qi('tFin','Temp. final (°C)','inputmode="decimal"')}${qi('hIni','HR inicial (%)','inputmode="decimal"')}${qi('hFin','HR final (%)','inputmode="decimal"')}</div></div>
+ <div class="card"><div class="card-title">Lecturas del patrón (${t.unidad})</div>
+ <div class="lec"><span></span>${q.nom.map(()=>'<span class="h">Valor nominal</span>').join('')}
+ <b>Nominal</b>${q.nom.map((n,j)=>`<input data-nom="${j}" value="${esc(n)}" inputmode="decimal">`).join('')}
+ ${[0,1,2,3,4].map(i=>`<b>M${i+1}</b>`+q.nom.map((_,j)=>`<input data-lec="${j}" data-i="${i}" value="${esc(q.lec[j][i])}" inputmode="decimal" placeholder="—">`).join('')).join('')}
+ <b>Prom.</b>${q.nom.map((_,j)=>`<span class="st" id="p${j}">${fmtN(stats(q,j)?.p)}</span>`).join('')}
+ <b>Error</b>${q.nom.map((_,j)=>`<span class="st" id="e${j}">${fmtN(stats(q,j)?.e)}</span>`).join('')}</div>
+ <p class="muted small" style="margin:10px 0 0">El error, la desviación y la incertidumbre definitivos los calcula la plantilla oficial.</p></div>
+ <button class="btn dan block" data-a="quitar">Quitar este equipo</button></div>
+ <div class="bottom"><div class="in"><button class="btn ghost" data-a="agregarOtro">+ Otro</button><button class="btn navy" data-a="cerrarEditor">Listo ✓</button></div></div>`;
+}
+function vGenerar(){
+ const listos=ST.eqs.filter(q=>completo(q)&&!q.hecho).length,inc=ST.eqs.filter(q=>!completo(q)).length;
+ return topbar('Generar',`Paso 3 de 3 · ${esc(ST.cli.nombre)}`,'atrasEquipos')+`<div class="content">
+ <div class="card"><div class="card-title">Carpeta de destino</div>
+ <div id="dest" class="small">${ST.carpeta&&ST.carpeta.cliente===norm(ST.cli.nombre)?`📁 <b>${esc(ST.carpeta.name)}</b> › ${CONFIG.SUBCARPETA} › ${esc((ST.gen.fecha||hoy()).slice(0,4))}`:'Se buscará la carpeta del cliente en MANTENIMIENTOS al generar.'}</div>
+ ${ST.candidatos&&ST.candidatos.length&&!(ST.carpeta&&ST.carpeta.cliente===norm(ST.cli.nombre))?`<label style="margin-top:10px">Hay varias carpetas parecidas, elija una<select id="candSel"><option value="">—</option>${ST.candidatos.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label>`:''}
+ <label style="margin-top:10px">…o pegue el enlace de la carpeta del cliente<input id="destUrl" placeholder="https://drive.google.com/drive/folders/…"></label><button class="btn ghost sm" data-a="usarCarpeta">Usar esta carpeta</button></div>
+ <div class="card"><div class="card-title">Equipos</div>
+ ${ST.eqs.map(q=>`<div class="eq" style="cursor:default"><div class="main"><div class="t">${q.certificado?`<span class="cert">${esc(q.certificado)}</span>`:''}${esc(q.equipo)} · S/N ${esc(q.serie||'—')}</div><div class="s">${q.err?`<span style="color:var(--danger)">${esc(q.err)}</span>`:q.hecho?`<a href="${esc(q.hecho)}" target="_blank" rel="noopener">📄 Abrir Excel en Drive</a>`:completo(q)?'Listo para generar':'Falta: '+esc(faltan(q).join(', '))}</div></div>${chip(q)}${completo(q)?`<button class="btn sm ${q.hecho?'ghost':''}" data-a="gen1" data-id="${q.id}">${q.hecho?'Rehacer':'Generar'}</button>`:`<button class="btn sm ghost" data-a="editar" data-id="${q.id}">Completar</button>`}</div>`).join('')}
+ <div class="status" id="estado"></div></div>
+ ${inc?`<p class="muted small">${inc} equipo(s) incompleto(s) no se generan.</p>`:''}
+ <div class="card"><div class="card-title">Terminar</div><p class="muted small" style="margin-top:0">Cuando todos estén generados, puede empezar una toma de datos nueva para otro cliente. Los Excel quedan en Drive.</p><button class="btn ghost block" data-a="nueva">Nueva toma de datos</button></div></div>
+ <div class="bottom"><div class="in"><button class="btn ghost" data-a="atrasEquipos">‹ Equipos</button><button class="btn" data-a="genTodos" ${listos?'':'disabled'}>⚙️ Generar ${listos} Excel</button></div></div>`;
+}
+function vAjustes(){
+ return topbar('Ajustes','Metrología Intelmedica','cerrarAjustes')+`<div class="content"><div class="card"><div class="card-title">Drive</div>
+ <label>ID de la carpeta de clientes (MANTENIMIENTOS)<input id="ajMant" value="${esc(AJ.mant)}"></label>
+ ${Object.entries(PLANTILLAS).map(([k,p])=>`<label>ID de la plantilla ${esc(p.tipo)} (vacío = buscarla sola)<input data-tplid="${k}" value="${esc(AJ.tplIds[k]||'')}"></label>`).join('')}
+ <button class="btn navy block" data-a="guardarAjustes">Guardar</button></div>
+ <div class="card"><div class="card-title">Sesión</div><p class="muted small" style="margin-top:0">${conectado()?'Conectado a Google.':'Sin conexión con Google.'}</p><button class="btn ghost block" data-a="conectar">${conectado()?'Volver a conectar':'Conectar con Google'}</button></div>
+ <div class="card"><details><summary>Cómo funciona</summary><ol class="small muted"><li>Datos del cliente y de la calibración, una sola vez.</li><li>Cada equipo: N.º de certificado, identificación, condiciones ambientales y lecturas M1–M5.</li><li>Generar: se copia la plantilla oficial, se escriben los datos en sus celdas de entrada y se guarda el Excel en la carpeta del cliente › ${CONFIG.SUBCARPETA} › año. Las fórmulas y la gráfica de la plantilla calculan el certificado.</li></ol></details></div></div>`;
+}
+let VISTA='';
+function render(){
+ const V=VISTA==='ajustes'?vAjustes:ST.editando?vEditor:{cliente:vCliente,equipos:vEquipos,generar:vGenerar}[ST.paso]||vCliente;
+ $('#app').innerHTML=V();
+}
+
+/* =================== acciones =================== */
+async function run(fn){try{return await fn()}catch(e){console.error(e);if(e instanceof AuthError){token=null;render()}toast(e.message||String(e),'err')}}
+const est=m=>{const e=$('#estado');if(e)e.textContent=m};
+const ACT={
+ conectar:()=>run(async()=>{await conectar();render();toast('Conectado a Google ✔');await cargarClientes();render()}),
+ ajustes:()=>{VISTA='ajustes';render();scrollTo(0,0)},
+ cerrarAjustes:()=>{VISTA='';render()},
+ guardarAjustes:()=>{AJ.mant=$('#ajMant').value.trim()||CONFIG.MANTENIMIENTOS;document.querySelectorAll('[data-tplid]').forEach(i=>{AJ.tplIds[i.dataset.tplid]=i.value.trim()});saveLS(KEY+'_aj',AJ);ST.carpeta=null;guardar();VISTA='';render();toast('Ajustes guardados')},
+ paso:id=>{ST.paso=id;guardar();render();scrollTo(0,0)},
+ atrasCliente:()=>ACT.paso('cliente'),atrasEquipos:()=>ACT.paso('equipos'),
+ agregar:()=>{const q=eqNuevo(ST.eqs[ST.eqs.length-1]);ST.eqs.push(q);ST.editando=q.id;guardar();render();scrollTo(0,0);setTimeout(()=>$('[data-q=certificado]')?.focus(),60)},
+ agregarOtro:()=>{ST.editando='';ACT.agregar()},
+ editar:id=>{ST.editando=id;guardar();render();scrollTo(0,0)},
+ cerrarEditor:()=>{ST.editando='';guardar();render();scrollTo(0,0)},
+ quitar:()=>{if(!confirm('¿Quitar este equipo de la toma de datos?'))return;ST.eqs=ST.eqs.filter(q=>q.id!==ST.editando);ST.editando='';guardar();render()},
+ usarCarpeta:()=>run(async()=>{const u=$('#destUrl').value.trim();const id=(/folders\/([^/?#]+)/.exec(u)||[])[1]||(/[?&]id=([^&#]+)/.exec(u)||[])[1]||u;if(!id)return;const f=await driveMeta(id);if(f.mimeType!==FOLDER)throw new Error('El enlace no es de una carpeta');ST.carpeta={id:f.id,name:f.name,cliente:norm(ST.cli.nombre)};guardar();render();toast('Carpeta seleccionada')}),
+ gen1:id=>run(async()=>{const q=ST.eqs.find(x=>x.id===id);try{await generar(q,est);toast('Excel generado ✔')}catch(e){q.err=e.message;guardar();throw e}finally{render()}}),
+ genTodos:()=>run(async()=>{const L=ST.eqs.filter(q=>completo(q)&&!q.hecho);let n=0;for(const q of L){try{await generar(q,m=>est(`(${n+1}/${L.length}) ${m}`));n++}catch(e){q.err=e.message;guardar();if(e instanceof AuthError)throw e}render()}toast(`${n} de ${L.length} Excel generado(s) ✔`)}),
+ nueva:()=>{if(ST.eqs.some(q=>!q.hecho)&&!confirm('Hay equipos sin generar. ¿Empezar de nuevo de todas formas?'))return;const g={...ST.gen};ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;guardar();render();scrollTo(0,0)}
+};
+document.addEventListener('click',ev=>{const b=ev.target.closest('[data-a]');if(!b||b.disabled)return;if(b.tagName==='A'&&b.href)return;ev.preventDefault();ACT[b.dataset.a]?.(b.dataset.id,b)});
+document.addEventListener('input',ev=>{
+ const el=ev.target,d=el.dataset;
+ if(d.g==='cli'||d.g==='gen'){ST[d.g][d.k]=el.value;if(d.g==='cli'&&d.k==='nombre'){const b=$('#btnSig');if(b)b.disabled=!el.value.trim()}guardar();return}
+ const q=ST.eqs.find(x=>x.id===ST.editando);if(!q)return;
+ if(d.q)q[d.q]=el.value;else if(d.lec!=null)q.lec[+d.lec][+d.i]=el.value;else if(d.nom!=null)q.nom[+d.nom]=el.value;else return;
+ q.hecho='';q.err='';
+ if(d.lec!=null||d.nom!=null){const j=+(d.lec??d.nom),s=stats(q,j);$('#p'+j).textContent=fmtN(s?.p);$('#e'+j).textContent=fmtN(s?.e)}
+ guardar();
+});
+document.addEventListener('change',ev=>{
+ const el=ev.target,d=el.dataset;
+ if(d.g==='st'){ST.tpl=el.value;guardar();return}
+ if(d.g==='gen'&&el.tagName==='SELECT'){ST.gen[d.k]=el.value;guardar();return}
+ if(d.g==='cli'&&d.k==='nombre'){const c=CLIENTES.find(x=>norm(x.nombre)===norm(el.value));if(c){if(!ST.cli.contacto)ST.cli.contacto=c.contacto;if(!ST.cli.telefono)ST.cli.telefono=c.telefono;guardar();render()}}
+ if(el.id==='candSel'&&el.value){const c=ST.candidatos.find(x=>x.id===el.value);ST.carpeta={id:c.id,name:c.name,cliente:norm(ST.cli.nombre)};guardar();render()}
+});
+// Entre lecturas: Enter pasa a la siguiente casilla (útil en el celular).
+document.addEventListener('keydown',ev=>{if(ev.key!=='Enter'||ev.target.tagName!=='INPUT')return;const L=[...document.querySelectorAll('.content input')];const i=L.indexOf(ev.target);if(i>=0&&L[i+1]){ev.preventDefault();L[i+1].focus()}});
+if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+render();
+if(conectado())run(async()=>{await cargarClientes();if(ST.paso==='cliente'&&!ST.editando&&VISTA!=='ajustes'){const a=document.activeElement;if(!a||a===document.body)render()}});
+</script>
+</body>
+</html>
