@@ -124,14 +124,15 @@ const T=()=>TIPOS[ST.tpl]||TIPOS.flujo;
 const A=()=>ARCHIVOS[T().archivo];
 const PUNTOS=t=>t.secciones.flatMap(sc=>sc.puntos);
 function eqNuevo(prev){const t=T(),v={};PUNTOS(t).forEach(p=>{v[p.prog.cell]=prev?.v?.[p.prog.cell]??String(p.prog.def)});
- const q={id:uid(),certificado:'',equipo:t.equipo,marca:'',modelo:'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:prev?.tIni||'',tFin:prev?.tFin||'',hIni:prev?.hIni||'',hFin:prev?.hFin||'',v,hecho:'',err:''};
+ const q={id:uid(),certificado:'',acred:prev?.acred||'',equipo:t.equipo,marca:'',modelo:'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:prev?.tIni||'',tFin:prev?.tFin||'',hIni:prev?.hIni||'',hFin:prev?.hFin||'',v,hecho:'',err:''};
  (A().extra||[]).forEach(x=>q[x.k]=prev?.[x.k]||'');return q}
 // Borradores de la versión anterior (solo flujómetro): se pasan al formato nuevo.
 (function migrar(){let c=false;(ST.eqs||[]).forEach(q=>{if(q.v||!q.nom)return;q.v={};['B','C','D'].forEach((col,j)=>{q.v[col+'149']=String(q.nom[j]??'');(q.lec[j]||[]).forEach((x,i)=>q.v[col+(150+i)]=x)});delete q.nom;delete q.lec;c=true});if(c&&!ST.tpl)ST.tpl='flujo'})();
-// N.º de certificado: número-AA (dos últimos dígitos del año de calibración), p. ej. 42710-26.
+// N.º de certificado: sticker NO acreditado → número-AA (año de calibración), p. ej. 42710-26;
+// sticker ACREDITADO → solo el número, p. ej. 42710.
 const aa=()=>(ST.gen.fecha||hoy()).slice(2,4);
-const cert=q=>{const s=String(q.certificado||'').trim().replace(/\s+/g,'');if(!s)return'';const m=/^(\d+)(?:-(\d{2}))?$/.exec(s);return m?m[1]+'-'+(m[2]||aa()):s};
-const certOk=q=>/^\d+-\d{2}$/.test(cert(q));
+const cert=q=>{const s=String(q.certificado||'').trim().replace(/\s+/g,'');if(!s)return'';const m=/^(\d+)(?:-(\d{2}))?$/.exec(s);if(!m)return s;return q.acred==='si'?m[1]:m[1]+'-'+(m[2]||aa())};
+const certOk=q=>q.acred==='si'?/^\d+$/.test(cert(q)):q.acred==='no'&&/^\d+-\d{2}$/.test(cert(q));
 const certRep=q=>!!cert(q)&&ST.eqs.some(x=>x!==q&&cert(x)===cert(q));
 const val=(q,c)=>num(q.v?.[c]);
 // Puntos obligatorios: con valor programado numérico. En ventiladores, los parámetros NA/NI son
@@ -140,7 +141,7 @@ const obligatorio=(t,q,p)=>t.check==='prog'||val(q,p.prog.cell)!==null||p.lec.so
 const faltanLec=(q)=>{const t=T();return PUNTOS(t).filter(p=>obligatorio(t,q,p)).reduce((a,p)=>a+p.lec.filter(l=>val(q,l.cell)===null).length,0)};
 const faltaProg=q=>{const t=T();return t.check==='prog'&&PUNTOS(t).some(p=>val(q,p.prog.cell)===null)};
 const faltaExtra=q=>(A().extra||[]).filter(x=>x.num?num(q[x.k])===null:!String(q[x.k]||'').trim()).map(x=>x.l.replace(' *','').toLowerCase());
-const faltan=q=>[!String(q.certificado).trim()&&'N.º de certificado',String(q.certificado).trim()&&!certOk(q)&&'N.º de certificado válido (número-AA)',certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q),faltaProg(q)&&'valores nominales',(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
+const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q),faltaProg(q)&&'valores nominales',(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
 const completo=q=>!faltan(q).length;
 // Lectura sospechosa (±10 %): en flujómetros y manómetros contra el valor nominal; en ventiladores
 // contra las demás lecturas del mismo parámetro (patrón y equipo por separado), porque el valor
@@ -291,7 +292,7 @@ function vEquipos(){
  <button class="btn ghost block" data-a="agregar">+ Agregar ${esc(t.tipo.toLowerCase())}</button></div></div>
  <div class="bottom"><div class="in"><button class="btn ghost" data-a="atrasCliente">‹ Cliente</button><button class="btn navy" data-a="paso" data-id="generar" ${ST.eqs.length?'':'disabled'}>Generar →</button></div></div>`;
 }
-const certPrev=q=>!String(q.certificado).trim()?'':certRep(q)?`<span style="color:var(--danger);font-weight:700">⚠ El certificado ${esc(cert(q))} ya está en otro equipo</span>`:certOk(q)?`Quedará: <span class="cert">${esc(cert(q))}</span>`:'<span style="color:var(--danger);font-weight:700">Use el formato número-AA, p. ej. 42710-26</span>';
+const certPrev=q=>!String(q.certificado).trim()?'':certRep(q)?`<span style="color:var(--danger);font-weight:700">⚠ El certificado ${esc(cert(q))} ya está en otro equipo</span>`:!q.acred?'<span class="muted">Elija primero si el sticker es acreditado o no acreditado.</span>':certOk(q)?`Quedará: <span class="cert">${esc(cert(q))}</span>`:`<span style="color:var(--danger);font-weight:700">${q.acred==='si'?'Acreditado: escriba solo el número, p. ej. 42710':'Use el formato número-AA, p. ej. 42710-26'}</span>`;
 const avisoLec=q=>{const n=nFuera(q);if(!n)return'';return`<div class="aviso">⚠ ${n} lectura(s) fuera de ±10 % ${T().check==='prog'?'del valor nominal':'de las demás lecturas del mismo parámetro'}.<br>• Si fue un <b>error de escritura</b>, corrija la casilla en rojo.<br>• Si la lectura es <b>real</b> (el equipo está fuera de tolerancia), confírmelo:<label style="display:flex;gap:8px;align-items:center;margin:8px 0 0;color:var(--danger)"><input type="checkbox" data-conf="1" style="width:22px;height:22px;margin:0" ${confirmado(q)?'checked':''}> Confirmo que las lecturas en rojo son reales y se deben certificar así</label></div>`};
 const inC=(q,p,l)=>`<input data-cell="${l.cell}" data-p="${p.id}" value="${esc(q.v[l.cell]??'')}" inputmode="decimal" placeholder="—" class="${fuera(q,p,l)?'bad':''}">`;
 const inP=(q,p)=>`<input data-cell="${p.prog.cell}" data-p="${p.id}" data-prog="1" value="${esc(q.v[p.prog.cell]??'')}" ${T().check==='prog'?'inputmode="decimal"':''}>`;
@@ -315,7 +316,8 @@ function vEditor(){
  const i=ST.eqs.indexOf(q);
  return topbar(`${esc(t.tipo)} ${i+1}`,esc(ST.cli.nombre),'cerrarEditor')+`<div class="content">
  <div class="card"><div class="card-title">Certificado e identificación</div>
- ${qi('certificado','N.º de certificado * (el -AA del año se agrega solo)','inputmode="numeric" placeholder="Ej. 42710"')}<div class="small" id="certPrev" style="margin:-6px 0 12px">${certPrev(q)}</div>
+ <div class="small" style="font-weight:600;margin-bottom:6px">Sticker *</div><div class="tipos" style="margin-bottom:12px">${[['si','Acreditado','Solo el número · 42710'],['no','No acreditado','Número-AA · 42710-'+aa()]].map(([k,t,d])=>`<button type="button" class="tipo ${q.acred===k?'on':''}" data-a="acred" data-id="${k}"><b>${t}</b><span class="small muted">${d}</span></button>`).join('')}</div>
+ ${qi('certificado','N.º de certificado *'+(q.acred==='no'?' (el -AA del año se agrega solo)':''),'inputmode="numeric" placeholder="Ej. 42710"')}<div class="small" id="certPrev" style="margin:-6px 0 12px">${certPrev(q)}</div>
  <div class="g2">${qi('equipo','Equipo')}${qi('marca','Fabricante / marca')}${qi('modelo','Modelo')}${qi('serie','Serie * (NI si no tiene)')}${qi('activo','N.º interno / activo','placeholder="NI"')}${qi('ubicacion','Ubicación')}</div></div>
  <div class="card"><div class="card-title">Condiciones ambientales</div>
  <div class="g2">${qi('tIni','Temp. inicial (°C)','inputmode="decimal"')}${qi('tFin','Temp. final (°C)','inputmode="decimal"')}${qi('hIni','HR inicial (%)','inputmode="decimal"')}${qi('hFin','HR final (%)','inputmode="decimal"')}</div></div>
@@ -366,6 +368,7 @@ const ACT={
  tipo:id=>{if(ST.tpl===id)return;if(ST.eqs.length&&!confirm('Cambiar el tipo de equipo borra los '+ST.eqs.length+' equipo(s) de esta toma de datos. ¿Continuar?'))return;if(ST.eqs.length)ST.eqs=[];ST.tpl=id;guardar();const y=scrollY;render();scrollTo(0,y)},
  atrasCliente:()=>ACT.paso('cliente'),atrasEquipos:()=>ACT.paso('equipos'),
  agregar:()=>{const q=eqNuevo(ST.eqs[ST.eqs.length-1]);ST.eqs.push(q);ST.editando=q.id;guardar();render();scrollTo(0,0);setTimeout(()=>$('[data-q=certificado]')?.focus(),60)},
+ acred:id=>{const q=ST.eqs.find(x=>x.id===ST.editando);if(!q)return;q.acred=id;const m=/^(\d+)/.exec(String(q.certificado||'').trim());if(m)q.certificado=id==='si'?m[1]:cert(q);guardar();const y=scrollY;render();scrollTo(0,y)},
  agregarOtro:()=>{ST.editando='';ACT.agregar()},
  editar:id=>{ST.editando=id;guardar();render();scrollTo(0,0)},
  cerrarEditor:()=>{ST.editando='';guardar();render();scrollTo(0,0)},
