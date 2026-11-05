@@ -47,6 +47,7 @@ input:focus,select:focus{outline:2px solid var(--teal);border-color:var(--teal)}
 .lec input.bad{background:#fde4e6;border-color:var(--danger);color:var(--danger);font-weight:800;outline-color:var(--danger)}
 .aviso{background:#fde4e6;color:var(--danger);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;margin-top:10px}
 .lec .st{text-align:center;font-weight:800;color:var(--navy);background:#eaf1f7;border-radius:8px;padding:8px 2px;font-size:14px}
+.negw{position:relative}.negw span{position:absolute;left:12px;top:50%;transform:translateY(-55%);font-weight:800;font-size:18px;color:var(--navy);pointer-events:none}.negw input{padding-left:28px}
 .tipos{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tipo{border:1.5px solid var(--border);background:#fff;border-radius:12px;padding:12px 10px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:3px}
 .tipo b{font-size:14.5px;color:var(--navy)}.tipo span{font-size:11px;color:var(--muted)}.tipo.on{border-color:var(--teal);background:#e7f5f6;box-shadow:0 0 0 2px var(--teal) inset}
 .vp{border-top:1px solid var(--border);padding:12px 0}.vp:first-of-type{border-top:0;padding-top:0}.vph{display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:8px}.vph b{font-size:14px}.vph label{display:flex;align-items:center;gap:6px;margin:0;font-size:12px}.vph input{width:90px;margin:0;text-align:center;padding:8px 4px}
@@ -140,6 +141,8 @@ const val=(q,c)=>num(q.v?.[c]);
 const obligatorio=(t,q,p)=>t.check==='prog'||val(q,p.prog.cell)!==null||p.lec.some(l=>String(q.v[l.cell]??'').trim()!=='');
 const faltanLec=(q)=>{const t=T();return PUNTOS(t).filter(p=>obligatorio(t,q,p)).reduce((a,p)=>a+p.lec.filter(l=>val(q,l.cell)===null).length,0)};
 const faltaProg=q=>{const t=T();return t.check==='prog'&&PUNTOS(t).some(p=>val(q,p.prog.cell)===null)};
+// Manovacuómetro: la capacidad máxima es de vacío, se escribe con "-" delante automáticamente.
+const capNeg=x=>ST.tpl==='mvac'&&x.k==='capacidad';
 const faltaExtra=q=>(A().extra||[]).filter(x=>x.num?num(q[x.k])===null:!String(q[x.k]||'').trim()).map(x=>x.l.replace(' *','').toLowerCase());
 const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q),faltaProg(q)&&'valores nominales',(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
 const completo=q=>!faltan(q).length;
@@ -245,7 +248,7 @@ async function generar(q,est){
   put(C.lugar,G.lugar==='En Sitio'?'En Sitio':a.lab);if(G.metrologo)put(C.metrologo,G.metrologo);put(C.recepcion,G.recepcion);put(C.fecha,G.fecha);put(C.certificado,"'"+cert(q));
   ['tIni','tFin','hIni','hFin'].forEach(k=>{const n=num(q[k]);put(C[k],n===null?'':n)});
   put(C.equipo,txt(q.equipo));put(C.serie,txt(q.serie));put(C.marca,txt(q.marca));put(C.activo,txt(q.activo));put(C.modelo,txt(q.modelo));put(C.ubicacion,txt(q.ubicacion));
-  (a.extra||[]).forEach(x=>put(x.cell,x.num?num(q[x.k]):String(q[x.k]||'')));
+  (a.extra||[]).forEach(x=>put(x.cell,x.num?(capNeg(x)&&num(q[x.k])!==null?-Math.abs(num(q[x.k])):num(q[x.k])):String(q[x.k]||'')));
   PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();put(p.prog.cell,num(pv)!==null?num(pv):(pv||'NI'));p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,n===null?'':n)})});
   est('Escribiendo los datos…');
   await api(SH+tmp.id+'/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data:d})});
@@ -321,7 +324,7 @@ function vEditor(){
  <div class="g2">${qi('equipo','Equipo')}${qi('marca','Fabricante / marca')}${qi('modelo','Modelo')}${qi('serie','Serie * (NI si no tiene)')}${qi('activo','N.º interno / activo','placeholder="NI"')}${qi('ubicacion','Ubicación')}</div></div>
  <div class="card"><div class="card-title">Condiciones ambientales</div>
  <div class="g2">${qi('tIni','Temp. inicial (°C)','inputmode="decimal"')}${qi('tFin','Temp. final (°C)','inputmode="decimal"')}${qi('hIni','HR inicial (%)','inputmode="decimal"')}${qi('hFin','HR final (%)','inputmode="decimal"')}</div></div>
- ${(A().extra||[]).length?`<div class="card"><div class="card-title">Datos del instrumento</div><div class="g2">${A().extra.map(x=>x.opts?`<label>${x.l}<select data-q="${x.k}"><option value="">—</option>${x.opts.map(o=>`<option ${q[x.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:qi(x.k,x.l,'inputmode="decimal"')).join('')}</div></div>`:''}
+ ${(A().extra||[]).length?`<div class="card"><div class="card-title">Datos del instrumento</div><div class="g2">${A().extra.map(x=>x.opts?`<label>${x.l}<select data-q="${x.k}"><option value="">—</option>${x.opts.map(o=>`<option ${q[x.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:capNeg(x)?`<label>${x.l}<div class="negw"><span>−</span><input data-q="${x.k}" value="${esc(String(q[x.k]||'').replace(/^\s*[-−]\s*/,''))}" inputmode="decimal" placeholder="Ej. 30"></div></label>`:qi(x.k,x.l,'inputmode="decimal"')).join('')}</div></div>`:''}
  ${t.secciones.map(sc=>seccionHtml(q,t,sc)).join('')}
  <div class="card" style="padding:12px 16px"><div id="avisoLec">${avisoLec(q)}</div>
  <p class="muted small" style="margin:${nFuera(q)?'10px':'0'} 0 0">Las casillas en rojo se alejan más del 10 % ${t.check==='prog'?'del valor nominal':'de las demás lecturas del mismo parámetro'}: revise si están bien digitadas. Los resultados definitivos los calcula la plantilla oficial.</p></div>
