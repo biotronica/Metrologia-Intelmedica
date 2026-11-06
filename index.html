@@ -71,7 +71,8 @@ const CONFIG={
  SCOPE:'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets',
  MANTENIMIENTOS:'1F4xPV_Ot0oJftSvz-GgLEmb6CfI5Mun4',   // carpeta de clientes
  BASE_CLIENTES:'Base de Clientes - Intelmedica',          // para autocompletar clientes
- SUBCARPETA:'Calibraciones'                               // carpeta del cliente › Calibraciones › año
+ COMPARTIDOS:'1C-CxBM-aL9MlLzKzOSkOMqX2JW_ZBqhq',     // Drive › Documentos compartidos
+ CARPETA_METRO:'METROLOGIA'                               // Documentos compartidos › METROLOGIA › tipo de equipo
 };
 // Plantillas oficiales de metrología (archivos en Drive) y las celdas de entrada de cada una.
 const ARCHIVOS={
@@ -118,7 +119,7 @@ let tt;function toast(m,cls=''){const t=$('#toast');t.textContent=m;t.className=
 const KEY='metrologia_intelmedica_v1';
 function estadoNuevo(){return{paso:'cliente',tpl:'',cli:{nombre:'',contacto:'',direccion:'',telefono:''},gen:{recepcion:hoy(),fecha:hoy(),lugar:'En Sitio',metrologo:METROLOGOS[0]},eqs:[],editando:'',carpeta:null}}
 let ST=Object.assign(estadoNuevo(),loadLS(KEY)||{});
-let AJ=Object.assign({mant:CONFIG.MANTENIMIENTOS,tplIds:{}},loadLS(KEY+'_aj')||{});
+let AJ=Object.assign({mant:CONFIG.MANTENIMIENTOS,comp:CONFIG.COMPARTIDOS,tplIds:{}},loadLS(KEY+'_aj')||{});
 const guardar=()=>saveLS(KEY,ST);
 let CLIENTES=loadLS(KEY+'_cli')||[];
 const T=()=>TIPOS[ST.tpl]||TIPOS.flujo;
@@ -234,8 +235,8 @@ async function generar(q,est){
  if(!completo(q))throw new Error('Faltan datos en el equipo');
  if(!confirmado(q))throw new Error('Hay lecturas fuera de ±10 % sin corregir ni confirmar');
  est('Buscando la carpeta del cliente…');
- const cf=await carpetaCliente();if(!cf)throw new Error('No se encontró la carpeta del cliente en MANTENIMIENTOS. Elíjala en "Carpeta de destino".');
- const cCal=await subcarpeta(cf.id,CONFIG.SUBCARPETA),cAnio=await subcarpeta(cCal,(G.fecha||hoy()).slice(0,4));
+ // Destino: Documentos compartidos › METROLOGIA › tipo de equipo (las carpetas se crean si no existen).
+ const cMet=await subcarpeta(AJ.comp||CONFIG.COMPARTIDOS,CONFIG.CARPETA_METRO),cAnio=await subcarpeta(cMet,subCarpeta());
  est('Copiando la plantilla oficial…');
  const tpl=await plantilla();
  const nombre=`${cert(q)} ${t.tipo.replace(/ \/.*$/,'')} ${q.serie&&!/^ni$/i.test(q.serie)?q.serie:(q.activo||'NI')}`.replace(/[\\/:*?"<>|#%]+/g,'-').trim();
@@ -258,9 +259,78 @@ async function generar(q,est){
   const r=await fetch(`${DRV}/${encodeURIComponent(tmp.id)}/export?mimeType=${encodeURIComponent(MIME_XLSX)}`,{headers:{Authorization:'Bearer '+token}});
   if(!r.ok)throw new Error('No se pudo exportar a Excel (HTTP '+r.status+')');
   const ex=await driveList(`'${dq(cAnio)}' in parents and name='${dq(nombre+'.xlsx')}' and trashed=false`);
-  const fx=await subir(await r.blob(),{name:nombre+'.xlsx',parents:[cAnio]},MIME_XLSX,ex[0]?.id);
-  q.hecho=`https://drive.google.com/file/d/${fx.id}/view`;q.err='';guardar();
+  const blob=await r.blob();
+  const fx=await subir(blob,{name:nombre+'.xlsx',parents:[cAnio]},MIME_XLSX,ex[0]?.id);
+  q.hecho=`https://drive.google.com/file/d/${fx.id}/view`;q.err='';q.cel='';q.archivo=nombre+'.xlsx';guardar();
+  idbPut(q.id,{name:nombre+'.xlsx',blob}).catch(()=>{});
  }finally{api(`${DRV}/${encodeURIComponent(tmp.id)}?supportsAllDrives=true`,{method:'DELETE'}).catch(()=>{})}
+}
+
+
+/* ============ guardar en el celular: METROLOGIA › <tipo de equipo> ============ */
+// Los Excel generados se guardan también en el dispositivo (IndexedDB) para poder pasarlos a Archivos.
+const IDB='metrologia_archivos';
+function idbAbrir(){return new Promise((ok,ko)=>{const r=indexedDB.open(IDB,1);r.onupgradeneeded=()=>r.result.createObjectStore('f');r.onsuccess=()=>ok(r.result);r.onerror=()=>ko(r.error)})}
+async function idbOp(modo,fn){const db=await idbAbrir();return new Promise((ok,ko)=>{const tx=db.transaction('f',modo),st=tx.objectStore('f');const r=fn(st);tx.oncomplete=()=>{ok(r&&r.result);db.close()};tx.onerror=()=>{ko(tx.error);db.close()}})}
+const idbPut=(k,v)=>idbOp('readwrite',st=>st.put(v,k));
+const idbGet=k=>idbOp('readonly',st=>st.get(k));
+const idbDel=k=>idbOp('readwrite',st=>st.delete(k));
+const subCarpeta=()=>(T()?.tipo||'Equipos').replace(/[\\/:*?"<>|]/g,'-').trim();
+async function archivoDe(q){
+ let a=null;try{a=await idbGet(q.id)}catch(e){}
+ if(a&&a.blob)return{name:a.name,blob:a.blob};
+ const id=/\/d\/([^/]+)/.exec(q.hecho||'')?.[1];if(!id)throw new Error('No se encontró el Excel de '+cert(q));
+ const r=await fetch(`${DRV}/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true`,{headers:{Authorization:'Bearer '+token}});
+ if(r.status===401){token=null;throw new AuthError()}
+ if(!r.ok)throw new Error('No se pudo descargar el Excel de Drive (HTTP '+r.status+')');
+ const blob=await r.blob(),name=q.archivo||(cert(q)+' '+q.equipo+'.xlsx');idbPut(q.id,{name,blob}).catch(()=>{});return{name,blob};
+}
+// ZIP sin compresión (método "store"): al abrirlo en Archivos crea METROLOGIA/<tipo>/…
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0};
+async function zipar(items){
+ const enc=new TextEncoder(),partes=[],dir=[];let off=0;const d=new Date();
+ const tm=(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1),dt=((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate();
+ for(const it of items){
+  const nb=enc.encode(it.path),data=it.blob?new Uint8Array(await it.blob.arrayBuffer()):new Uint8Array(0),crc=crc32(data);
+  const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);h.setUint16(10,tm,true);h.setUint16(12,dt,true);h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,nb.length,true);
+  partes.push(h.buffer,nb,data);
+  const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(12,tm,true);c.setUint16(14,dt,true);c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,nb.length,true);c.setUint32(38,it.path.endsWith('/')?16:0,true);c.setUint32(42,off,true);
+  dir.push(c.buffer,nb);off+=30+nb.length+data.length;
+ }
+ const tam=dir.reduce((a,x)=>a+(x.byteLength??x.length),0),e=new DataView(new ArrayBuffer(22));
+ e.setUint32(0,0x06054b50,true);e.setUint16(8,items.length,true);e.setUint16(10,items.length,true);e.setUint32(12,tam,true);e.setUint32(16,off,true);
+ return new Blob([...partes,...dir,e.buffer],{type:'application/zip'});
+}
+function bajarArchivo(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)}
+async function compartir(files,titulo){
+ if(navigator.canShare&&navigator.canShare({files})){try{await navigator.share({files,title:titulo});return true}catch(e){if(e.name==='AbortError')return false;throw e}}
+ files.forEach(f=>bajarArchivo(f,f.name));return true;
+}
+const generados=()=>ST.eqs.filter(q=>q.hecho);
+async function leerGenerados(){const L=[];for(const q of generados()){est(`Preparando ${L.length+1}/${generados().length}…`);L.push({q,...await archivoDe(q)})}est('');return L}
+// PC (Chrome/Edge): se elige una vez la carpeta base y la app crea METROLOGIA/<tipo> sola.
+async function guardarEnCarpeta(L){
+ let base=null;try{base=await idbGet('__base')}catch(e){}
+ if(base&&(await base.queryPermission?.({mode:'readwrite'}))!=='granted'){if((await base.requestPermission?.({mode:'readwrite'}))!=='granted')base=null}
+ if(!base){base=await window.showDirectoryPicker({id:'metrologia',mode:'readwrite',startIn:'documents'});idbPut('__base',base).catch(()=>{})}
+ const m=base.name.toUpperCase()==='METROLOGIA'?base:await base.getDirectoryHandle('METROLOGIA',{create:true});
+ const sub=await m.getDirectoryHandle(subCarpeta(),{create:true});
+ for(const it of L){const fh=await sub.getFileHandle(it.name,{create:true}),w=await fh.createWritable();await w.write(it.blob);await w.close()}
+ return `${base.name.toUpperCase()==='METROLOGIA'?'':base.name+' › '}METROLOGIA › ${subCarpeta()}`;
+}
+const marcarCel=L=>{L.forEach(it=>it.q.cel='1');guardar();render()};
+function celCard(){
+ const g=generados();if(!g.length)return'';
+ const pc=window.showDirectoryPicker&&!/iPhone|iPad|Android/i.test(navigator.userAgent),sub=esc(subCarpeta()),nc=g.filter(q=>q.cel).length;
+ return`<div class="card"><div class="card-title">📱 Guardar en el ${pc?'computador':'celular'}</div>
+ <p class="small" style="margin-top:0">Carpeta: <b>METROLOGIA › ${sub}</b> · ${g.length} Excel generado(s)${nc?` · ${nc} ya guardado(s)`:''}</p>
+ ${pc?`<p class="muted small">La primera vez elija dónde va la carpeta (p. ej. Documentos); la app crea METROLOGIA › ${sub} y guarda ahí los Excel.</p>
+ <button class="btn block" data-a="celGuardar">💾 Guardar en METROLOGIA › ${sub}</button>`
+ :`<button class="btn block" data-a="celGuardar">📂 Guardar en Archivos</button>
+ <p class="muted small">Toque <b>Guardar en Archivos</b> y elija <b>En mi iPhone › METROLOGIA › ${sub}</b>.</p>
+ <button class="btn ghost block" data-a="celZip" style="margin-top:6px">🗂️ Crear carpeta METROLOGIA › ${sub} (ZIP)</button>
+ <p class="muted small" style="margin-bottom:0">Úselo la primera vez o cuando la carpeta de este equipo no exista: guarde el ZIP en <b>En mi iPhone</b> y tóquelo; se crea METROLOGIA › ${sub} con los Excel adentro. Después borre el ZIP. Si METROLOGIA ya existe, use mejor el botón de arriba (si no, Archivos crea "METROLOGIA 2").</p>`}</div>`;
 }
 
 /* =================== vistas =================== */
@@ -334,24 +404,25 @@ function vEditor(){
 function vGenerar(){
  const listos=ST.eqs.filter(q=>generable(q)&&!q.hecho).length,inc=ST.eqs.filter(q=>!completo(q)).length;
  return topbar('Generar',`Paso 3 de 3 · ${esc(ST.cli.nombre)}`,'atrasEquipos')+`<div class="content">
- <div class="card"><div class="card-title">Carpeta de destino</div>
- <div id="dest" class="small">${ST.carpeta&&ST.carpeta.cliente===norm(ST.cli.nombre)?`📁 <b>${esc(ST.carpeta.name)}</b> › ${CONFIG.SUBCARPETA} › ${esc((ST.gen.fecha||hoy()).slice(0,4))}`:'Se buscará la carpeta del cliente en MANTENIMIENTOS al generar.'}</div>
- ${ST.candidatos&&ST.candidatos.length&&!(ST.carpeta&&ST.carpeta.cliente===norm(ST.cli.nombre))?`<label style="margin-top:10px">Hay varias carpetas parecidas, elija una<select id="candSel"><option value="">—</option>${ST.candidatos.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label>`:''}
- <label style="margin-top:10px">…o pegue el enlace de la carpeta del cliente<input id="destUrl" placeholder="https://drive.google.com/drive/folders/…"></label><button class="btn ghost sm" data-a="usarCarpeta">Usar esta carpeta</button></div>
+ <div class="card"><div class="card-title">Carpeta de destino en Drive</div>
+ <div class="small">📁 Documentos compartidos › <b>${CONFIG.CARPETA_METRO}</b> › <b>${esc(subCarpeta())}</b></div>
+ <div class="muted small" style="margin-top:4px">Si las carpetas no existen, la app las crea.</div></div>
  <div class="card"><div class="card-title">Equipos</div>
  ${ST.eqs.map(q=>`<div class="eq" style="cursor:default"><div class="main"><div class="t">${q.certificado?`<span class="cert">${esc(cert(q))}</span>`:''}${esc(q.equipo)} · S/N ${esc(q.serie||'—')}</div><div class="s">${q.err?`<span style="color:var(--danger)">${esc(q.err)}</span>`:q.hecho?`<a href="${esc(q.hecho)}" target="_blank" rel="noopener">📄 Abrir Excel en Drive</a>`:!confirmado(q)?`<span style="color:var(--danger)">${nFuera(q)} lectura(s) fuera de ±10 %: corrija o confirme en el equipo</span>`:completo(q)?(nFuera(q)?'Listo · lecturas fuera de tolerancia confirmadas':'Listo para generar'):'Falta: '+esc(faltan(q).join(', '))}</div></div>${chip(q)}${generable(q)?`<button class="btn sm ${q.hecho?'ghost':''}" data-a="gen1" data-id="${q.id}">${q.hecho?'Rehacer':'Generar'}</button>`:`<button class="btn sm ghost" data-a="editar" data-id="${q.id}">${completo(q)?'Revisar':'Completar'}</button>`}</div>`).join('')}
  <div class="status" id="estado"></div></div>
  ${inc?`<p class="muted small">${inc} equipo(s) incompleto(s) no se generan.</p>`:''}
- <div class="card"><div class="card-title">Terminar</div><p class="muted small" style="margin-top:0">Cuando todos estén generados, puede empezar una toma de datos nueva para otro cliente. Los Excel quedan en Drive.</p><button class="btn ghost block" data-a="nueva">Nueva toma de datos</button></div></div>
+ ${celCard()}
+ <div class="card"><div class="card-title">Terminar</div><p class="muted small" style="margin-top:0">Cuando todos estén generados, puede empezar una toma de datos nueva para otro cliente. Los Excel quedan en Drive${generados().some(q=>!q.cel)?' — <b>ojo:</b> hay Excel que aún no se han guardado en el celular':''}.</p><button class="btn ghost block" data-a="nueva">Nueva toma de datos</button></div></div>
  <div class="bottom"><div class="in"><button class="btn ghost" data-a="atrasEquipos">‹ Equipos</button><button class="btn" data-a="genTodos" ${listos?'':'disabled'}>⚙️ Generar ${listos} Excel</button></div></div>`;
 }
 function vAjustes(){
  return topbar('Ajustes','Metrología Intelmedica','cerrarAjustes')+`<div class="content"><div class="card"><div class="card-title">Drive</div>
- <label>ID de la carpeta de clientes (MANTENIMIENTOS)<input id="ajMant" value="${esc(AJ.mant)}"></label>
+ <label>ID de la carpeta "Documentos compartidos" (ahí se crea METROLOGIA)<input id="ajComp" value="${esc(AJ.comp||CONFIG.COMPARTIDOS)}"></label>
+ <label>ID de la carpeta de clientes (MANTENIMIENTOS, para autocompletar)<input id="ajMant" value="${esc(AJ.mant)}"></label>
  ${Object.entries(ARCHIVOS).map(([k,p])=>`<label>ID de ${esc(p.nombre.replace(/\.xlsx$/,''))} (vacío = buscarla sola)<input data-tplid="${k}" value="${esc(AJ.tplIds[k]||'')}"></label>`).join('')}
  <button class="btn navy block" data-a="guardarAjustes">Guardar</button></div>
  <div class="card"><div class="card-title">Sesión</div><p class="muted small" style="margin-top:0">${conectado()?'Conectado a Google.':'Sin conexión con Google.'}</p><button class="btn ghost block" data-a="conectar">${conectado()?'Volver a conectar':'Conectar con Google'}</button></div>
- <div class="card"><details><summary>Cómo funciona</summary><ol class="small muted"><li>Datos del cliente y de la calibración, una sola vez.</li><li>Primero se elige el tipo de equipo (flujómetro, manómetro de baja o de alta, manovacuómetro o ventilador) y se usa su plantilla.</li><li>Cada equipo: N.º de certificado, identificación, condiciones ambientales y lecturas.</li><li>Generar: se copia la plantilla oficial, se escriben los datos en sus celdas de entrada y se guarda el Excel en la carpeta del cliente › ${CONFIG.SUBCARPETA} › año. Las fórmulas y la gráfica de la plantilla calculan el certificado.</li></ol></details></div></div>`;
+ <div class="card"><details><summary>Cómo funciona</summary><ol class="small muted"><li>Datos del cliente y de la calibración, una sola vez.</li><li>Primero se elige el tipo de equipo (flujómetro, manómetro de baja o de alta, manovacuómetro o ventilador) y se usa su plantilla.</li><li>Cada equipo: N.º de certificado, identificación, condiciones ambientales y lecturas.</li><li>Generar: se copia la plantilla oficial, se escriben los datos en sus celdas de entrada y se guarda el Excel en Drive › Documentos compartidos › ${CONFIG.CARPETA_METRO} › tipo de equipo. Las fórmulas y la gráfica de la plantilla calculan el certificado.</li></ol></details></div></div>`;
 }
 let VISTA='';
 function render(){
@@ -366,7 +437,7 @@ const ACT={
  conectar:()=>run(async()=>{await conectar();render();toast('Conectado a Google ✔');await cargarClientes();render()}),
  ajustes:()=>{VISTA='ajustes';render();scrollTo(0,0)},
  cerrarAjustes:()=>{VISTA='';render()},
- guardarAjustes:()=>{AJ.mant=$('#ajMant').value.trim()||CONFIG.MANTENIMIENTOS;document.querySelectorAll('[data-tplid]').forEach(i=>{AJ.tplIds[i.dataset.tplid]=i.value.trim()});saveLS(KEY+'_aj',AJ);ST.carpeta=null;guardar();VISTA='';render();toast('Ajustes guardados')},
+ guardarAjustes:()=>{AJ.mant=$('#ajMant').value.trim()||CONFIG.MANTENIMIENTOS;AJ.comp=$('#ajComp').value.trim()||CONFIG.COMPARTIDOS;document.querySelectorAll('[data-tplid]').forEach(i=>{AJ.tplIds[i.dataset.tplid]=i.value.trim()});saveLS(KEY+'_aj',AJ);ST.carpeta=null;guardar();VISTA='';render();toast('Ajustes guardados')},
  paso:id=>{ST.paso=id;guardar();render();scrollTo(0,0)},
  tipo:id=>{if(ST.tpl===id)return;if(ST.eqs.length&&!confirm('Cambiar el tipo de equipo borra los '+ST.eqs.length+' equipo(s) de esta toma de datos. ¿Continuar?'))return;if(ST.eqs.length)ST.eqs=[];ST.tpl=id;guardar();const y=scrollY;render();scrollTo(0,y)},
  atrasCliente:()=>ACT.paso('cliente'),atrasEquipos:()=>ACT.paso('equipos'),
@@ -379,7 +450,7 @@ const ACT={
  usarCarpeta:()=>run(async()=>{const u=$('#destUrl').value.trim();const id=(/folders\/([^/?#]+)/.exec(u)||[])[1]||(/[?&]id=([^&#]+)/.exec(u)||[])[1]||u;if(!id)return;const f=await driveMeta(id);if(f.mimeType!==FOLDER)throw new Error('El enlace no es de una carpeta');ST.carpeta={id:f.id,name:f.name,cliente:norm(ST.cli.nombre)};guardar();render();toast('Carpeta seleccionada')}),
  gen1:id=>run(async()=>{const q=ST.eqs.find(x=>x.id===id);if(!generable(q))return toast('Corrija o confirme las lecturas en rojo antes de generar','err');try{await generar(q,est);toast('Excel generado ✔')}catch(e){q.err=e.message;guardar();throw e}finally{render()}}),
  genTodos:()=>run(async()=>{const L=ST.eqs.filter(q=>generable(q)&&!q.hecho);let n=0;for(const q of L){try{await generar(q,m=>est(`(${n+1}/${L.length}) ${m}`));n++}catch(e){q.err=e.message;guardar();if(e instanceof AuthError)throw e}render()}toast(`${n} de ${L.length} Excel generado(s) ✔`)}),
- nueva:()=>{if(ST.eqs.some(q=>!q.hecho)&&!confirm('Hay equipos sin generar. ¿Empezar de nuevo de todas formas?'))return;const g={...ST.gen};ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;guardar();render();scrollTo(0,0)}
+ nueva:()=>{if(ST.eqs.some(q=>!q.hecho)&&!confirm('Hay equipos sin generar. ¿Empezar de nuevo de todas formas?'))return;if(ST.eqs.some(q=>q.hecho&&!q.cel)&&!confirm('Hay Excel que no se han guardado en el celular (carpeta METROLOGIA). ¿Empezar de nuevo de todas formas?'))return;ST.eqs.forEach(q=>idbDel(q.id).catch(()=>{}));const g={...ST.gen};ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;guardar();render();scrollTo(0,0)}
 };
 document.addEventListener('click',ev=>{const b=ev.target.closest('[data-a]');if(!b||b.disabled)return;if(b.tagName==='A'&&b.href)return;ev.preventDefault();ACT[b.dataset.a]?.(b.dataset.id,b)});
 function refrescarLec(q,pid){
@@ -388,6 +459,23 @@ function refrescarLec(q,pid){
  const p=pm.get(pid);if(p){const s=statsTxt(q,p);if(typeof s==='string'){const e=$('#ss_'+p.id);if(e)e.innerHTML=s}else{const a=$('#sp_'+p.id),b=$('#se_'+p.id),c=$('#ss_'+p.id);if(a)a.textContent=s.p;if(b)b.textContent=s.e;if(c)c.innerHTML=`Prom. <b>${s.p}</b> · Error <b>${s.e}</b>`}}
  const av=$('#avisoLec');if(av)av.innerHTML=avisoLec(q);
 }
+ACT.celGuardar=()=>run(async()=>{
+ if(!generados().length)return toast('Primero genere los Excel','err');
+ const L=await leerGenerados();
+ if(window.showDirectoryPicker&&!/iPhone|iPad|Android/i.test(navigator.userAgent)){
+  try{const ruta=await guardarEnCarpeta(L);marcarCel(L);toast(`${L.length} Excel guardado(s) en ${ruta} ✔`)}catch(e){if(e.name!=='AbortError')throw e}
+  return;
+ }
+ const files=L.map(it=>new File([it.blob],it.name,{type:MIME_XLSX}));
+ if(await compartir(files,'METROLOGIA › '+subCarpeta())){marcarCel(L);toast('En "Guardar en Archivos" elija METROLOGIA › '+subCarpeta())}
+});
+ACT.celZip=()=>run(async()=>{
+ if(!generados().length)return toast('Primero genere los Excel','err');
+ const L=await leerGenerados(),sub=subCarpeta();
+ const zip=await zipar([{path:'METROLOGIA/'},{path:`METROLOGIA/${sub}/`},...L.map(it=>({path:`METROLOGIA/${sub}/${it.name}`,blob:it.blob}))]);
+ const f=new File([zip],`METROLOGIA - ${sub}.zip`,{type:'application/zip'});
+ if(await compartir([f],'METROLOGIA')){marcarCel(L);toast('Guarde el ZIP en Archivos y tóquelo: se crea la carpeta METROLOGIA › '+sub)}
+});
 document.addEventListener('input',ev=>{
  const el=ev.target,d=el.dataset;
  if(d.g==='cli'||d.g==='gen'){ST[d.g][d.k]=el.value;if(d.g==='cli'&&d.k==='nombre'){const b=$('#btnSig');if(b)b.disabled=!(el.value.trim()&&ST.tpl)}guardar();return}
