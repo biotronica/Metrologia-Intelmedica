@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v12</title>
+<title>Metrología · Intelmedica v13</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -344,7 +344,7 @@ function celCard(){
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v12';
+const VERSION='v13';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
@@ -490,6 +490,15 @@ ACT.celZip=()=>run(async()=>{
  const f=new File([zip],`METROLOGIA${subs.length===1?' - '+subs[0]:''}.zip`,{type:'application/zip'});
  if(await compartir([f],'METROLOGIA')){marcarCel(L);toast('Guarde el ZIP en Archivos y tóquelo: se crea la carpeta METROLOGIA')}
 });
+
+// Casillas de toma de datos (lecturas, valores programados, condiciones ambientales y datos del instrumento):
+// al entrar se selecciona el valor anterior, así lo que se escriba lo reemplaza. No aplica a cliente ni a
+// la identificación del equipo.
+const REEMPLAZA=new Set(['tIni','tFin','hIni','hFin','capacidad','resolucion']);
+const esReemplazo=el=>el&&el.tagName==='INPUT'&&(el.dataset.cell!==undefined||REEMPLAZA.has(el.dataset.q));
+document.addEventListener('focusin',ev=>{const el=ev.target;if(!esReemplazo(el)||!el.value)return;
+ const sel=()=>{try{el.setSelectionRange(0,el.value.length)}catch(e){el.select()}};sel();setTimeout(sel,0);setTimeout(sel,60)});
+document.addEventListener('mouseup',ev=>{if(esReemplazo(ev.target)&&document.activeElement===ev.target&&ev.target.selectionStart===0&&ev.target.selectionEnd===ev.target.value.length)ev.preventDefault()},true);
 document.addEventListener('input',ev=>{
  const el=ev.target,d=el.dataset;
  if(el.tagName==='INPUT'&&(d.g||d.q||d.cell)&&el.type!=='date'&&el.value!==MAY(el.value)){const a=el.selectionStart,b=el.selectionEnd;el.value=MAY(el.value);try{el.setSelectionRange(a,b)}catch(e){}}
