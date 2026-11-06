@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v11</title>
+<title>Metrología · Intelmedica v12</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -48,6 +48,7 @@ input:focus,select:focus{outline:2px solid var(--teal);border-color:var(--teal)}
 .aviso{background:#fde4e6;color:var(--danger);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;margin-top:10px}
 .lec .st{text-align:center;font-weight:800;color:var(--navy);background:#eaf1f7;border-radius:8px;padding:8px 2px;font-size:14px}
 .negw{position:relative}.negw span{position:absolute;left:12px;top:50%;transform:translateY(-55%);font-weight:800;font-size:18px;color:var(--navy);pointer-events:none}.negw input{padding-left:28px}
+input[data-g]:not([type=date]),input[data-q],input[data-cell],select[data-g]{text-transform:uppercase}
 .ver{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.18);color:#fff;vertical-align:middle;margin-left:4px;letter-spacing:.3px}
 .tipos{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tipo{border:1.5px solid var(--border);background:#fff;border-radius:12px;padding:12px 10px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:3px}
 .tipo b{font-size:14.5px;color:var(--navy)}.tipo span{font-size:11px;color:var(--muted)}.tipo.on{border-color:var(--teal);background:#e7f5f6;box-shadow:0 0 0 2px var(--teal) inset}
@@ -123,6 +124,7 @@ let ST=Object.assign(estadoNuevo(),loadLS(KEY)||{});
 let AJ=Object.assign({mant:CONFIG.MANTENIMIENTOS,comp:CONFIG.COMPARTIDOS,tplIds:{}},loadLS(KEY+'_aj')||{});
 const guardar=()=>saveLS(KEY,ST);
 let CLIENTES=loadLS(KEY+'_cli')||[];
+const MAY=v=>String(v??'').toLocaleUpperCase('es-CO');
 // Cada equipo guarda su propio tipo (q.tpl): en una misma toma de datos puede haber varios tipos.
 const T=q=>TIPOS[(q&&q.tpl)||ST.tpl]||TIPOS.flujo;
 const A=q=>ARCHIVOS[T(q).archivo];
@@ -242,18 +244,19 @@ async function generar(q,est){
  const cMet=await subcarpeta(AJ.comp||CONFIG.COMPARTIDOS,CONFIG.CARPETA_METRO),cAnio=await subcarpeta(cMet,subCarpeta(q));
  est('Copiando la plantilla oficial…');
  const tpl=await plantilla(q);
- const nombre=`${cert(q)} ${t.tipo.replace(/ \/.*$/,'')} ${q.serie&&!/^ni$/i.test(q.serie)?q.serie:(q.activo||'NI')}`.replace(/[\\/:*?"<>|#%]+/g,'-').trim();
+ const nombre=MAY(`${cert(q)} ${t.tipo.replace(/ \/.*$/,'')} ${q.serie&&!/^ni$/i.test(q.serie)?q.serie:(q.activo||'NI')}`).replace(/[\\/:*?"<>|#%]+/g,'-').trim();
  const tmp=await subir(tpl,{name:nombre+' (temporal)',parents:[cAnio],mimeType:GSHEET},MIME_XLSX);
  try{
   const meta=await api(SH+tmp.id+'?fields=sheets.properties(sheetId,title,hidden)');
   const hoja=(meta.sheets.find(s=>s.properties.title.trim()===a.hoja)||meta.sheets[0]).properties.title;
-  const d=[],put=(a,v)=>d.push({range:`'${hoja}'!${a}`,values:[[v]]}),txt=v=>{v=String(v??'').trim();return v===''?'NI':v};
-  put(C.nombre,K.nombre.trim());put(C.contacto,K.contacto);put(C.direccion,K.direccion);put(C.telefono,K.telefono);
-  put(C.lugar,G.lugar==='En Sitio'?'En Sitio':a.lab);if(G.metrologo)put(C.metrologo,G.metrologo);put(C.recepcion,G.recepcion);put(C.fecha,G.fecha);put(C.certificado,"'"+cert(q));
+  // Todo el texto va en MAYÚSCULAS (menos las unidades de presión, p. ej. kPa).
+  const d=[],put=(a,v)=>d.push({range:`'${hoja}'!${a}`,values:[[v]]}),txt=v=>{v=MAY(v).trim();return v===''?'NI':v};
+  put(C.nombre,MAY(K.nombre).trim());put(C.contacto,MAY(K.contacto));put(C.direccion,MAY(K.direccion));put(C.telefono,MAY(K.telefono));
+  put(C.lugar,G.lugar==='En Sitio'?'EN SITIO':MAY(a.lab));if(G.metrologo)put(C.metrologo,MAY(G.metrologo));put(C.recepcion,G.recepcion);put(C.fecha,G.fecha);put(C.certificado,"'"+cert(q));
   ['tIni','tFin','hIni','hFin'].forEach(k=>{const n=num(q[k]);put(C[k],n===null?'':n)});
   put(C.equipo,txt(q.equipo));put(C.serie,txt(q.serie));put(C.marca,txt(q.marca));put(C.activo,txt(q.activo));put(C.modelo,txt(q.modelo));put(C.ubicacion,txt(q.ubicacion));
   (a.extra||[]).forEach(x=>put(x.cell,x.num?(capNeg(x,q)&&num(q[x.k])!==null?-Math.abs(num(q[x.k])):num(q[x.k])):String(q[x.k]||'')));
-  PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();put(p.prog.cell,num(pv)!==null?num(pv):(pv||'NI'));p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,n===null?'':n)})});
+  PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();put(p.prog.cell,num(pv)!==null?num(pv):(MAY(pv)||'NI'));p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,n===null?'':n)})});
   est('Escribiendo los datos…');
   await api(SH+tmp.id+'/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data:d})});
   // Manómetros: se deja visible la hoja del certificado que corresponde al tipo elegido.
@@ -278,7 +281,7 @@ async function idbOp(modo,fn){const db=await idbAbrir();return new Promise((ok,k
 const idbPut=(k,v)=>idbOp('readwrite',st=>st.put(v,k));
 const idbGet=k=>idbOp('readonly',st=>st.get(k));
 const idbDel=k=>idbOp('readwrite',st=>st.delete(k));
-const subCarpeta=q=>(T(q)?.tipo||'Equipos').replace(/[\\/:*?"<>|]/g,'-').trim();
+const subCarpeta=q=>MAY(T(q)?.tipo||'Equipos').replace(/[\\/:*?"<>|]/g,'-').trim();
 async function archivoDe(q){
  let a=null;try{a=await idbGet(q.id)}catch(e){}
  if(a&&a.blob)return{name:a.name,blob:a.blob};
@@ -341,7 +344,7 @@ function celCard(){
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v11';
+const VERSION='v12';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
@@ -489,6 +492,7 @@ ACT.celZip=()=>run(async()=>{
 });
 document.addEventListener('input',ev=>{
  const el=ev.target,d=el.dataset;
+ if(el.tagName==='INPUT'&&(d.g||d.q||d.cell)&&el.type!=='date'&&el.value!==MAY(el.value)){const a=el.selectionStart,b=el.selectionEnd;el.value=MAY(el.value);try{el.setSelectionRange(a,b)}catch(e){}}
  if(d.g==='cli'||d.g==='gen'){ST[d.g][d.k]=el.value;if(d.g==='cli'&&d.k==='nombre'){const b=$('#btnSig');if(b)b.disabled=!(el.value.trim()&&ST.tpl)}guardar();return}
  if(d.conf)return;
  const q=ST.eqs.find(x=>x.id===ST.editando);if(!q)return;
