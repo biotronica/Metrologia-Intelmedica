@@ -122,13 +122,15 @@ let ST=Object.assign(estadoNuevo(),loadLS(KEY)||{});
 let AJ=Object.assign({mant:CONFIG.MANTENIMIENTOS,comp:CONFIG.COMPARTIDOS,tplIds:{}},loadLS(KEY+'_aj')||{});
 const guardar=()=>saveLS(KEY,ST);
 let CLIENTES=loadLS(KEY+'_cli')||[];
-const T=()=>TIPOS[ST.tpl]||TIPOS.flujo;
-const A=()=>ARCHIVOS[T().archivo];
+// Cada equipo guarda su propio tipo (q.tpl): en una misma toma de datos puede haber varios tipos.
+const T=q=>TIPOS[(q&&q.tpl)||ST.tpl]||TIPOS.flujo;
+const A=q=>ARCHIVOS[T(q).archivo];
 const PUNTOS=t=>t.secciones.flatMap(sc=>sc.puntos);
-function eqNuevo(prev){const t=T(),v={};PUNTOS(t).forEach(p=>{v[p.prog.cell]=prev?.v?.[p.prog.cell]??String(p.prog.def)});
- const q={id:uid(),certificado:'',acred:prev?.acred||'',equipo:t.equipo,marca:'',modelo:'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:prev?.tIni||'',tFin:prev?.tFin||'',hIni:prev?.hIni||'',hFin:prev?.hFin||'',v,hecho:'',err:''};
- (A().extra||[]).forEach(x=>q[x.k]=prev?.[x.k]||'');return q}
+function eqNuevo(prev){const t=T(),v={},mismo=prev&&(prev.tpl||ST.tpl)===ST.tpl;PUNTOS(t).forEach(p=>{v[p.prog.cell]=(mismo?prev?.v?.[p.prog.cell]:null)??String(p.prog.def)});
+ const q={id:uid(),tpl:ST.tpl,certificado:'',acred:prev?.acred||'',equipo:t.equipo,marca:'',modelo:'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:prev?.tIni||'',tFin:prev?.tFin||'',hIni:prev?.hIni||'',hFin:prev?.hFin||'',v,hecho:'',err:''};
+ (A().extra||[]).forEach(x=>q[x.k]=(mismo&&prev?.[x.k])||'');if(!mismo)q.ubicacion=prev?.ubicacion||'';return q}
 // Borradores de la versión anterior (solo flujómetro): se pasan al formato nuevo.
+(function(){(ST.eqs||[]).forEach(q=>{if(!q.tpl&&ST.tpl)q.tpl=ST.tpl})})();
 (function migrar(){let c=false;(ST.eqs||[]).forEach(q=>{if(q.v||!q.nom)return;q.v={};['B','C','D'].forEach((col,j)=>{q.v[col+'149']=String(q.nom[j]??'');(q.lec[j]||[]).forEach((x,i)=>q.v[col+(150+i)]=x)});delete q.nom;delete q.lec;c=true});if(c&&!ST.tpl)ST.tpl='flujo'})();
 // N.º de certificado: sticker NO acreditado → número-AA (año de calibración), p. ej. 42710-26;
 // sticker ACREDITADO → solo el número, p. ej. 42710.
@@ -140,11 +142,11 @@ const val=(q,c)=>num(q.v?.[c]);
 // Puntos obligatorios: con valor programado numérico. En ventiladores, los parámetros NA/NI son
 // opcionales, pero si se llena una lectura hay que llenar las ocho.
 const obligatorio=(t,q,p)=>t.check==='prog'||val(q,p.prog.cell)!==null||p.lec.some(l=>String(q.v[l.cell]??'').trim()!=='');
-const faltanLec=(q)=>{const t=T();return PUNTOS(t).filter(p=>obligatorio(t,q,p)).reduce((a,p)=>a+p.lec.filter(l=>val(q,l.cell)===null).length,0)};
-const faltaProg=q=>{const t=T();return t.check==='prog'&&PUNTOS(t).some(p=>val(q,p.prog.cell)===null)};
+const faltanLec=(q)=>{const t=T(q);return PUNTOS(t).filter(p=>obligatorio(t,q,p)).reduce((a,p)=>a+p.lec.filter(l=>val(q,l.cell)===null).length,0)};
+const faltaProg=q=>{const t=T(q);return t.check==='prog'&&PUNTOS(t).some(p=>val(q,p.prog.cell)===null)};
 // Manovacuómetro: la capacidad máxima es de vacío, se escribe con "-" delante automáticamente.
-const capNeg=x=>ST.tpl==='mvac'&&x.k==='capacidad';
-const faltaExtra=q=>(A().extra||[]).filter(x=>x.num?num(q[x.k])===null:!String(q[x.k]||'').trim()).map(x=>x.l.replace(' *','').toLowerCase());
+const capNeg=(x,q)=>T(q)===TIPOS.mvac&&x.k==='capacidad';
+const faltaExtra=q=>(A(q).extra||[]).filter(x=>x.num?num(q[x.k])===null:!String(q[x.k]||'').trim()).map(x=>x.l.replace(' *','').toLowerCase());
 const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q),faltaProg(q)&&'valores nominales',(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
 const completo=q=>!faltan(q).length;
 // Lectura sospechosa (±10 %): en flujómetros y manómetros contra el valor nominal; en ventiladores
@@ -152,17 +154,17 @@ const completo=q=>!faltan(q).length;
 // real puede diferir del programado.
 const TOL=0.10;
 const mediana=a=>{const b=[...a].sort((x,y)=>x-y),m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])/2};
-function fuera(q,p,l){const t=T(),v=val(q,l.cell);if(v===null)return false;
+function fuera(q,p,l){const t=T(q),v=val(q,l.cell);if(v===null)return false;
  if(t.check==='prog'){const n=val(q,p.prog.cell);return n!==null&&n!==0&&Math.abs(v-n)/Math.abs(n)>TOL}
  const g=p.lec.filter(x=>x.k===l.k).map(x=>val(q,x.cell)).filter(x=>x!==null);if(g.length<3)return false;const md=mediana(g);return md!==0&&Math.abs(v-md)/Math.abs(md)>TOL}
-const celdasFuera=q=>PUNTOS(T()).flatMap(p=>p.lec.filter(l=>fuera(q,p,l)).map(l=>l.cell+'='+q.v[l.cell]+'/'+(q.v[p.prog.cell]??'')));
+const celdasFuera=q=>PUNTOS(T(q)).flatMap(p=>p.lec.filter(l=>fuera(q,p,l)).map(l=>l.cell+'='+q.v[l.cell]+'/'+(q.v[p.prog.cell]??'')));
 const nFuera=q=>celdasFuera(q).length;
 // Firma de las lecturas en rojo: si se cambia alguna, la confirmación deja de valer.
 const firmaFuera=q=>celdasFuera(q).join(';');
 const confirmado=q=>!nFuera(q)||q.confFuera===firmaFuera(q);
 const generable=q=>completo(q)&&confirmado(q);
 const prom=(q,cells)=>{const v=cells.map(c=>val(q,c)).filter(x=>x!==null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null};
-function statsTxt(q,p){const t=T();
+function statsTxt(q,p){const t=T(q);
  if(t.check==='grupo'){const pt=prom(q,p.lec.filter(l=>l.k==='pt').map(l=>l.cell)),eq=prom(q,p.lec.filter(l=>l.k==='eq').map(l=>l.cell));return`Prom. patrón <b>${fmtN(pt)}</b> · Prom. equipo <b>${fmtN(eq)}</b> · Error <b>${fmtN(pt!=null&&eq!=null?eq-pt:null)}</b>`}
  const pr=prom(q,p.lec.map(l=>l.cell)),n=val(q,p.prog.cell);return{p:fmtN(pr),e:fmtN(pr!=null&&n!=null?(t.archivo==='flujo'?n-pr:pr-n):null)}}
 const chip=q=>!q.hecho&&!confirmado(q)?'<span class="chip err">Revisar</span>':q.hecho?'<span class="chip ok">Generado</span>':q.err?'<span class="chip err">Error</span>':completo(q)?'<span class="chip warn">Listo</span>':'<span class="chip gray">Incompleto</span>';
@@ -220,8 +222,8 @@ async function carpetaCliente(){
  if(!f)return null;
  ST.carpeta={id:f.id,name:f.name,cliente:norm(n)};guardar();return ST.carpeta;
 }
-async function plantilla(){
- const t=A(),ka=T().archivo;let id=AJ.tplIds[ka];
+async function plantilla(q){
+ const t=A(q),ka=T(q).archivo;let id=AJ.tplIds[ka];
  if(!id){let f=await driveList(`name='${dq(t.nombre)}' and trashed=false`);
   if(!f.length)f=(await driveList(`name contains '${dq(t.busca)}' and trashed=false`)).filter(x=>/\.xlsx$/i.test(x.name));
   if(!f.length)throw new Error('No se encontró la plantilla "'+t.nombre+'" en Drive');
@@ -231,14 +233,14 @@ async function plantilla(){
 
 /* =================== generar =================== */
 async function generar(q,est){
- const t=T(),a=A(),C=a.celdas,K=ST.cli,G=ST.gen;
+ const t=T(q),a=A(q),C=a.celdas,K=ST.cli,G=ST.gen;
  if(!completo(q))throw new Error('Faltan datos en el equipo');
  if(!confirmado(q))throw new Error('Hay lecturas fuera de ±10 % sin corregir ni confirmar');
  est('Buscando la carpeta del cliente…');
  // Destino: Documentos compartidos › METROLOGIA › tipo de equipo (las carpetas se crean si no existen).
- const cMet=await subcarpeta(AJ.comp||CONFIG.COMPARTIDOS,CONFIG.CARPETA_METRO),cAnio=await subcarpeta(cMet,subCarpeta());
+ const cMet=await subcarpeta(AJ.comp||CONFIG.COMPARTIDOS,CONFIG.CARPETA_METRO),cAnio=await subcarpeta(cMet,subCarpeta(q));
  est('Copiando la plantilla oficial…');
- const tpl=await plantilla();
+ const tpl=await plantilla(q);
  const nombre=`${cert(q)} ${t.tipo.replace(/ \/.*$/,'')} ${q.serie&&!/^ni$/i.test(q.serie)?q.serie:(q.activo||'NI')}`.replace(/[\\/:*?"<>|#%]+/g,'-').trim();
  const tmp=await subir(tpl,{name:nombre+' (temporal)',parents:[cAnio],mimeType:GSHEET},MIME_XLSX);
  try{
@@ -249,7 +251,7 @@ async function generar(q,est){
   put(C.lugar,G.lugar==='En Sitio'?'En Sitio':a.lab);if(G.metrologo)put(C.metrologo,G.metrologo);put(C.recepcion,G.recepcion);put(C.fecha,G.fecha);put(C.certificado,"'"+cert(q));
   ['tIni','tFin','hIni','hFin'].forEach(k=>{const n=num(q[k]);put(C[k],n===null?'':n)});
   put(C.equipo,txt(q.equipo));put(C.serie,txt(q.serie));put(C.marca,txt(q.marca));put(C.activo,txt(q.activo));put(C.modelo,txt(q.modelo));put(C.ubicacion,txt(q.ubicacion));
-  (a.extra||[]).forEach(x=>put(x.cell,x.num?(capNeg(x)&&num(q[x.k])!==null?-Math.abs(num(q[x.k])):num(q[x.k])):String(q[x.k]||'')));
+  (a.extra||[]).forEach(x=>put(x.cell,x.num?(capNeg(x,q)&&num(q[x.k])!==null?-Math.abs(num(q[x.k])):num(q[x.k])):String(q[x.k]||'')));
   PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();put(p.prog.cell,num(pv)!==null?num(pv):(pv||'NI'));p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,n===null?'':n)})});
   est('Escribiendo los datos…');
   await api(SH+tmp.id+'/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data:d})});
@@ -275,7 +277,7 @@ async function idbOp(modo,fn){const db=await idbAbrir();return new Promise((ok,k
 const idbPut=(k,v)=>idbOp('readwrite',st=>st.put(v,k));
 const idbGet=k=>idbOp('readonly',st=>st.get(k));
 const idbDel=k=>idbOp('readwrite',st=>st.delete(k));
-const subCarpeta=()=>(T()?.tipo||'Equipos').replace(/[\\/:*?"<>|]/g,'-').trim();
+const subCarpeta=q=>(T(q)?.tipo||'Equipos').replace(/[\\/:*?"<>|]/g,'-').trim();
 async function archivoDe(q){
  let a=null;try{a=await idbGet(q.id)}catch(e){}
  if(a&&a.blob)return{name:a.name,blob:a.blob};
@@ -308,29 +310,31 @@ async function compartir(files,titulo){
  files.forEach(f=>bajarArchivo(f,f.name));return true;
 }
 const generados=()=>ST.eqs.filter(q=>q.hecho);
-async function leerGenerados(){const L=[];for(const q of generados()){est(`Preparando ${L.length+1}/${generados().length}…`);L.push({q,...await archivoDe(q)})}est('');return L}
+async function leerGenerados(sub){const G=generados().filter(q=>!sub||subCarpeta(q)===sub),L=[];for(const q of G){est(`Preparando ${L.length+1}/${G.length}…`);L.push({q,...await archivoDe(q)})}est('');return L}
 // PC (Chrome/Edge): se elige una vez la carpeta base y la app crea METROLOGIA/<tipo> sola.
 async function guardarEnCarpeta(L){
+ const grupos=new Map();L.forEach(it=>{const k=subCarpeta(it.q);grupos.set(k,(grupos.get(k)||[]).concat(it))});
  let base=null;try{base=await idbGet('__base')}catch(e){}
  if(base&&(await base.queryPermission?.({mode:'readwrite'}))!=='granted'){if((await base.requestPermission?.({mode:'readwrite'}))!=='granted')base=null}
  if(!base){base=await window.showDirectoryPicker({id:'metrologia',mode:'readwrite',startIn:'documents'});idbPut('__base',base).catch(()=>{})}
  const m=base.name.toUpperCase()==='METROLOGIA'?base:await base.getDirectoryHandle('METROLOGIA',{create:true});
- const sub=await m.getDirectoryHandle(subCarpeta(),{create:true});
- for(const it of L){const fh=await sub.getFileHandle(it.name,{create:true}),w=await fh.createWritable();await w.write(it.blob);await w.close()}
- return `${base.name.toUpperCase()==='METROLOGIA'?'':base.name+' › '}METROLOGIA › ${subCarpeta()}`;
+ for(const [k,its] of grupos){const sub=await m.getDirectoryHandle(k,{create:true});
+  for(const it of its){const fh=await sub.getFileHandle(it.name,{create:true}),w=await fh.createWritable();await w.write(it.blob);await w.close()}}
+ return `${base.name.toUpperCase()==='METROLOGIA'?'':base.name+' › '}METROLOGIA › ${[...grupos.keys()].join(', ')}`;
 }
 const marcarCel=L=>{L.forEach(it=>it.q.cel='1');guardar();render()};
 function celCard(){
  const g=generados();if(!g.length)return'';
- const pc=window.showDirectoryPicker&&!/iPhone|iPad|Android/i.test(navigator.userAgent),sub=esc(subCarpeta()),nc=g.filter(q=>q.cel).length;
+ const pc=window.showDirectoryPicker&&!/iPhone|iPad|Android/i.test(navigator.userAgent),nc=g.filter(q=>q.cel).length;
+ const subs=[...new Set(g.map(subCarpeta))],lista=subs.map(x=>'METROLOGIA › '+esc(x)).join('<br>');
  return`<div class="card"><div class="card-title">📱 Guardar en el ${pc?'computador':'celular'}</div>
- <p class="small" style="margin-top:0">Carpeta: <b>METROLOGIA › ${sub}</b> · ${g.length} Excel generado(s)${nc?` · ${nc} ya guardado(s)`:''}</p>
- ${pc?`<p class="muted small">La primera vez elija dónde va la carpeta (p. ej. Documentos); la app crea METROLOGIA › ${sub} y guarda ahí los Excel.</p>
- <button class="btn block" data-a="celGuardar">💾 Guardar en METROLOGIA › ${sub}</button>`
- :`<button class="btn block" data-a="celGuardar">📂 Guardar en Archivos</button>
- <p class="muted small">Toque <b>Guardar en Archivos</b> y elija <b>En mi iPhone › METROLOGIA › ${sub}</b>.</p>
- <button class="btn ghost block" data-a="celZip" style="margin-top:6px">🗂️ Crear carpeta METROLOGIA › ${sub} (ZIP)</button>
- <p class="muted small" style="margin-bottom:0">Úselo la primera vez o cuando la carpeta de este equipo no exista: guarde el ZIP en <b>En mi iPhone</b> y tóquelo; se crea METROLOGIA › ${sub} con los Excel adentro. Después borre el ZIP. Si METROLOGIA ya existe, use mejor el botón de arriba (si no, Archivos crea "METROLOGIA 2").</p>`}</div>`;
+ <p class="small" style="margin-top:0">${g.length} Excel generado(s)${nc?` · ${nc} ya guardado(s)`:''}<br>${lista}</p>
+ ${pc?`<p class="muted small">La primera vez elija dónde va la carpeta (p. ej. Documentos); la app crea METROLOGIA y la subcarpeta de cada tipo de equipo.</p>
+ <button class="btn block" data-a="celGuardar">💾 Guardar en METROLOGIA</button>`
+ :`${subs.map(x=>`<button class="btn block" data-a="celGuardar" data-id="${esc(x)}" style="margin-bottom:6px">📂 Guardar ${esc(x)} en Archivos</button>`).join('')}
+ <p class="muted small">Toque el botón y en <b>Guardar en Archivos</b> elija <b>En mi iPhone › METROLOGIA › (tipo de equipo)</b>.</p>
+ <button class="btn ghost block" data-a="celZip" style="margin-top:6px">🗂️ Crear carpetas METROLOGIA (ZIP)</button>
+ <p class="muted small" style="margin-bottom:0">Úselo la primera vez o cuando no exista la carpeta de algún tipo de equipo: guarde el ZIP en <b>En mi iPhone</b> y tóquelo; se crea METROLOGIA con una subcarpeta por tipo y los Excel adentro. Después borre el ZIP. Si METROLOGIA ya existe, use mejor los botones de arriba (si no, Archivos crea "METROLOGIA 2").</p>`}</div>`;
 }
 
 /* =================== vistas =================== */
@@ -358,17 +362,20 @@ function vCliente(){
  <div class="bottom"><div class="in"><button class="btn navy" data-a="paso" data-id="equipos" ${ST.cli.nombre.trim()&&ST.tpl?'':'disabled'} id="btnSig">Equipos →</button></div></div>`;
 }
 function vEquipos(){
- const t=T();
+ const t=T(),cuenta=k=>ST.eqs.filter(q=>(q.tpl||ST.tpl)===k).length;
  return topbar('Equipos',`Paso 2 de 3 · ${esc(ST.cli.nombre||'Cliente')}`,'atrasCliente')+`<div class="content">
- <div class="card"><div class="card-title">${esc(t.tipo)} (${ST.eqs.length})</div>
- ${ST.eqs.map((q,i)=>`<div class="eq" data-a="editar" data-id="${q.id}"><div class="main"><div class="t">${q.certificado?`<span class="cert">${esc(cert(q))}</span>`:''}${i+1}. ${esc(q.equipo)} ${q.marca?'· '+esc(q.marca):''}</div><div class="s">Serie ${esc(q.serie||'—')}${q.activo?' · '+esc(q.activo):''}${q.ubicacion?' · '+esc(q.ubicacion):''}</div></div>${chip(q)}</div>`).join('')||'<div class="empty">Aún no hay equipos. Pulse “+ Agregar”.</div>'}
- <button class="btn ghost block" data-a="agregar">+ Agregar ${esc(t.tipo.toLowerCase())}</button></div></div>
+ <div class="card"><div class="card-title">Equipos tomados (${ST.eqs.length})</div>
+ ${ST.eqs.map((q,i)=>`<div class="eq" data-a="editar" data-id="${q.id}"><div class="main"><div class="t">${q.certificado?`<span class="cert">${esc(cert(q))}</span>`:''}${i+1}. ${esc(q.equipo)} ${q.marca?'· '+esc(q.marca):''}</div><div class="s"><b>${esc(T(q).tipo)}</b> · Serie ${esc(q.serie||'—')}${q.activo?' · '+esc(q.activo):''}${q.ubicacion?' · '+esc(q.ubicacion):''}</div></div>${chip(q)}</div>`).join('')||'<div class="empty">Aún no hay equipos. Elija el tipo y pulse “+ Agregar”.</div>'}</div>
+ <div class="card"><div class="card-title">Agregar equipo</div>
+ <div class="tipos">${Object.entries(TIPOS).map(([k,x])=>`<button class="tipo ${ST.tpl===k?'on':''}" data-a="tipo" data-id="${k}"><b>${esc(x.tipo)}</b><span class="small muted">${cuenta(k)?cuenta(k)+' tomado(s)':ARCHIVOS[x.archivo].nombre.split(' ')[0]}</span></button>`).join('')}</div>
+ <p class="muted small" style="margin:8px 0">Cambiar de tipo no borra los equipos ya tomados.</p>
+ <button class="btn block" data-a="agregar">+ Agregar ${esc(t.tipo.toLowerCase())}</button></div></div>
  <div class="bottom"><div class="in"><button class="btn ghost" data-a="atrasCliente">‹ Cliente</button><button class="btn navy" data-a="paso" data-id="generar" ${ST.eqs.length?'':'disabled'}>Generar →</button></div></div>`;
 }
 const certPrev=q=>!String(q.certificado).trim()?'':certRep(q)?`<span style="color:var(--danger);font-weight:700">⚠ El certificado ${esc(cert(q))} ya está en otro equipo</span>`:!q.acred?'<span class="muted">Elija primero si el sticker es acreditado o no acreditado.</span>':certOk(q)?`Quedará: <span class="cert">${esc(cert(q))}</span>`:`<span style="color:var(--danger);font-weight:700">${q.acred==='si'?'Acreditado: escriba solo el número, p. ej. 42710':'Use el formato número-AA, p. ej. 42710-26'}</span>`;
-const avisoLec=q=>{const n=nFuera(q);if(!n)return'';return`<div class="aviso">⚠ ${n} lectura(s) fuera de ±10 % ${T().check==='prog'?'del valor nominal':'de las demás lecturas del mismo parámetro'}.<br>• Si fue un <b>error de escritura</b>, corrija la casilla en rojo.<br>• Si la lectura es <b>real</b> (el equipo está fuera de tolerancia), confírmelo:<label style="display:flex;gap:8px;align-items:center;margin:8px 0 0;color:var(--danger)"><input type="checkbox" data-conf="1" style="width:22px;height:22px;margin:0" ${confirmado(q)?'checked':''}> Confirmo que las lecturas en rojo son reales y se deben certificar así</label></div>`};
+const avisoLec=q=>{const n=nFuera(q);if(!n)return'';return`<div class="aviso">⚠ ${n} lectura(s) fuera de ±10 % ${T(q).check==='prog'?'del valor nominal':'de las demás lecturas del mismo parámetro'}.<br>• Si fue un <b>error de escritura</b>, corrija la casilla en rojo.<br>• Si la lectura es <b>real</b> (el equipo está fuera de tolerancia), confírmelo:<label style="display:flex;gap:8px;align-items:center;margin:8px 0 0;color:var(--danger)"><input type="checkbox" data-conf="1" style="width:22px;height:22px;margin:0" ${confirmado(q)?'checked':''}> Confirmo que las lecturas en rojo son reales y se deben certificar así</label></div>`};
 const inC=(q,p,l)=>`<input data-cell="${l.cell}" data-p="${p.id}" value="${esc(q.v[l.cell]??'')}" inputmode="decimal" placeholder="—" class="${fuera(q,p,l)?'bad':''}">`;
-const inP=(q,p)=>`<input data-cell="${p.prog.cell}" data-p="${p.id}" data-prog="1" value="${esc(q.v[p.prog.cell]??'')}" ${T().check==='prog'?'inputmode="decimal"':''}>`;
+const inP=(q,p)=>`<input data-cell="${p.prog.cell}" data-p="${p.id}" data-prog="1" value="${esc(q.v[p.prog.cell]??'')}" ${T(q).check==='prog'?'inputmode="decimal"':''}>`;
 function seccionHtml(q,t,sc){
  if(sc.render==='cols'){const P=sc.puntos;return`<div class="card"><div class="card-title">${esc(sc.titulo)}</div><div class="lec" style="grid-template-columns:56px repeat(${P.length},minmax(0,1fr))"><span></span>${P.map(p=>`<span class="h">${esc(p.label)}</span>`).join('')}
   <b>Nominal</b>${P.map(p=>inP(q,p)).join('')}
@@ -384,7 +391,7 @@ function seccionHtml(q,t,sc){
   <div class="muted small" style="margin-top:6px" id="ss_${p.id}">${statsTxt(q,p)}</div></div>`).join('')}
   <p class="muted small" style="margin:8px 0 0">Si un parámetro no se mide, deje Programado en NA o NI y sus lecturas vacías.</p></div>`}
 function vEditor(){
- const q=ST.eqs.find(x=>x.id===ST.editando),t=T();if(!q){ST.editando='';return render()}
+ const q=ST.eqs.find(x=>x.id===ST.editando),t=T(q);if(!q){ST.editando='';return render()}
  const qi=(k,l,x='')=>`<label>${l}<input data-q="${k}" value="${esc(q[k])}" ${x}></label>`;
  const i=ST.eqs.indexOf(q);
  return topbar(`${esc(t.tipo)} ${i+1}`,esc(ST.cli.nombre),'cerrarEditor')+`<div class="content">
@@ -394,7 +401,7 @@ function vEditor(){
  <div class="g2">${qi('equipo','Equipo')}${qi('marca','Fabricante / marca')}${qi('modelo','Modelo')}${qi('serie','Serie * (NI si no tiene)')}${qi('activo','N.º interno / activo','placeholder="NI"')}${qi('ubicacion','Ubicación')}</div></div>
  <div class="card"><div class="card-title">Condiciones ambientales</div>
  <div class="g2">${qi('tIni','Temp. inicial (°C)','inputmode="decimal"')}${qi('tFin','Temp. final (°C)','inputmode="decimal"')}${qi('hIni','HR inicial (%)','inputmode="decimal"')}${qi('hFin','HR final (%)','inputmode="decimal"')}</div></div>
- ${(A().extra||[]).length?`<div class="card"><div class="card-title">Datos del instrumento</div><div class="g2">${A().extra.map(x=>x.opts?`<label>${x.l}<select data-q="${x.k}"><option value="">—</option>${x.opts.map(o=>`<option ${q[x.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:capNeg(x)?`<label>${x.l}<div class="negw"><span>−</span><input data-q="${x.k}" value="${esc(String(q[x.k]||'').replace(/^\s*[-−]\s*/,''))}" inputmode="decimal" placeholder="Ej. 30"></div></label>`:qi(x.k,x.l,'inputmode="decimal"')).join('')}</div></div>`:''}
+ ${(A(q).extra||[]).length?`<div class="card"><div class="card-title">Datos del instrumento</div><div class="g2">${A(q).extra.map(x=>x.opts?`<label>${x.l}<select data-q="${x.k}"><option value="">—</option>${x.opts.map(o=>`<option ${q[x.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:capNeg(x,q)?`<label>${x.l}<div class="negw"><span>−</span><input data-q="${x.k}" value="${esc(String(q[x.k]||'').replace(/^\s*[-−]\s*/,''))}" inputmode="decimal" placeholder="Ej. 30"></div></label>`:qi(x.k,x.l,'inputmode="decimal"')).join('')}</div></div>`:''}
  ${t.secciones.map(sc=>seccionHtml(q,t,sc)).join('')}
  <div class="card" style="padding:12px 16px"><div id="avisoLec">${avisoLec(q)}</div>
  <p class="muted small" style="margin:${nFuera(q)?'10px':'0'} 0 0">Las casillas en rojo se alejan más del 10 % ${t.check==='prog'?'del valor nominal':'de las demás lecturas del mismo parámetro'}: revise si están bien digitadas. Los resultados definitivos los calcula la plantilla oficial.</p></div>
@@ -405,7 +412,7 @@ function vGenerar(){
  const listos=ST.eqs.filter(q=>generable(q)&&!q.hecho).length,inc=ST.eqs.filter(q=>!completo(q)).length;
  return topbar('Generar',`Paso 3 de 3 · ${esc(ST.cli.nombre)}`,'atrasEquipos')+`<div class="content">
  <div class="card"><div class="card-title">Carpeta de destino en Drive</div>
- <div class="small">📁 Documentos compartidos › <b>${CONFIG.CARPETA_METRO}</b> › <b>${esc(subCarpeta())}</b></div>
+ <div class="small">${[...new Set(ST.eqs.map(subCarpeta))].map(x=>`📁 Documentos compartidos › <b>${CONFIG.CARPETA_METRO}</b> › <b>${esc(x)}</b>`).join('<br>')||'📁 Documentos compartidos › <b>'+CONFIG.CARPETA_METRO+'</b> › (tipo de equipo)'}</div>
  <div class="muted small" style="margin-top:4px">Si las carpetas no existen, la app las crea.</div></div>
  <div class="card"><div class="card-title">Equipos</div>
  ${ST.eqs.map(q=>`<div class="eq" style="cursor:default"><div class="main"><div class="t">${q.certificado?`<span class="cert">${esc(cert(q))}</span>`:''}${esc(q.equipo)} · S/N ${esc(q.serie||'—')}</div><div class="s">${q.err?`<span style="color:var(--danger)">${esc(q.err)}</span>`:q.hecho?`<a href="${esc(q.hecho)}" target="_blank" rel="noopener">📄 Abrir Excel en Drive</a>`:!confirmado(q)?`<span style="color:var(--danger)">${nFuera(q)} lectura(s) fuera de ±10 %: corrija o confirme en el equipo</span>`:completo(q)?(nFuera(q)?'Listo · lecturas fuera de tolerancia confirmadas':'Listo para generar'):'Falta: '+esc(faltan(q).join(', '))}</div></div>${chip(q)}${generable(q)?`<button class="btn sm ${q.hecho?'ghost':''}" data-a="gen1" data-id="${q.id}">${q.hecho?'Rehacer':'Generar'}</button>`:`<button class="btn sm ghost" data-a="editar" data-id="${q.id}">${completo(q)?'Revisar':'Completar'}</button>`}</div>`).join('')}
@@ -439,7 +446,7 @@ const ACT={
  cerrarAjustes:()=>{VISTA='';render()},
  guardarAjustes:()=>{AJ.mant=$('#ajMant').value.trim()||CONFIG.MANTENIMIENTOS;AJ.comp=$('#ajComp').value.trim()||CONFIG.COMPARTIDOS;document.querySelectorAll('[data-tplid]').forEach(i=>{AJ.tplIds[i.dataset.tplid]=i.value.trim()});saveLS(KEY+'_aj',AJ);ST.carpeta=null;guardar();VISTA='';render();toast('Ajustes guardados')},
  paso:id=>{ST.paso=id;guardar();render();scrollTo(0,0)},
- tipo:id=>{if(ST.tpl===id)return;if(ST.eqs.length&&!confirm('Cambiar el tipo de equipo borra los '+ST.eqs.length+' equipo(s) de esta toma de datos. ¿Continuar?'))return;if(ST.eqs.length)ST.eqs=[];ST.tpl=id;guardar();const y=scrollY;render();scrollTo(0,y)},
+ tipo:id=>{if(ST.tpl===id)return;ST.tpl=id;guardar();const y=scrollY;render();scrollTo(0,y)},  // el tipo elegido aplica a los equipos NUEVOS; los ya tomados conservan el suyo
  atrasCliente:()=>ACT.paso('cliente'),atrasEquipos:()=>ACT.paso('equipos'),
  agregar:()=>{const q=eqNuevo(ST.eqs[ST.eqs.length-1]);ST.eqs.push(q);ST.editando=q.id;guardar();render();scrollTo(0,0);setTimeout(()=>$('[data-q=certificado]')?.focus(),60)},
  acred:id=>{const q=ST.eqs.find(x=>x.id===ST.editando);if(!q)return;q.acred=id;const m=/^(\d+)/.exec(String(q.certificado||'').trim());if(m)q.certificado=id==='si'?m[1]:cert(q);guardar();const y=scrollY;render();scrollTo(0,y)},
@@ -454,27 +461,28 @@ const ACT={
 };
 document.addEventListener('click',ev=>{const b=ev.target.closest('[data-a]');if(!b||b.disabled)return;if(b.tagName==='A'&&b.href)return;ev.preventDefault();ACT[b.dataset.a]?.(b.dataset.id,b)});
 function refrescarLec(q,pid){
- const t=T(),pm=new Map(PUNTOS(t).map(p=>[p.id,p]));
+ const t=T(q),pm=new Map(PUNTOS(t).map(p=>[p.id,p]));
  document.querySelectorAll('[data-cell]:not([data-prog])').forEach(x=>{const p=pm.get(x.dataset.p);const l=p&&p.lec.find(l=>l.cell===x.dataset.cell);if(l)x.classList.toggle('bad',fuera(q,p,l))});
  const p=pm.get(pid);if(p){const s=statsTxt(q,p);if(typeof s==='string'){const e=$('#ss_'+p.id);if(e)e.innerHTML=s}else{const a=$('#sp_'+p.id),b=$('#se_'+p.id),c=$('#ss_'+p.id);if(a)a.textContent=s.p;if(b)b.textContent=s.e;if(c)c.innerHTML=`Prom. <b>${s.p}</b> · Error <b>${s.e}</b>`}}
  const av=$('#avisoLec');if(av)av.innerHTML=avisoLec(q);
 }
-ACT.celGuardar=()=>run(async()=>{
+ACT.celGuardar=sub=>run(async()=>{
  if(!generados().length)return toast('Primero genere los Excel','err');
- const L=await leerGenerados();
  if(window.showDirectoryPicker&&!/iPhone|iPad|Android/i.test(navigator.userAgent)){
+  const L=await leerGenerados();
   try{const ruta=await guardarEnCarpeta(L);marcarCel(L);toast(`${L.length} Excel guardado(s) en ${ruta} ✔`)}catch(e){if(e.name!=='AbortError')throw e}
   return;
  }
+ const L=await leerGenerados(sub||'');const nom=sub||subCarpeta(L[0]?.q);
  const files=L.map(it=>new File([it.blob],it.name,{type:MIME_XLSX}));
- if(await compartir(files,'METROLOGIA › '+subCarpeta())){marcarCel(L);toast('En "Guardar en Archivos" elija METROLOGIA › '+subCarpeta())}
+ if(await compartir(files,'METROLOGIA › '+nom)){marcarCel(L);toast('En "Guardar en Archivos" elija METROLOGIA › '+nom)}
 });
 ACT.celZip=()=>run(async()=>{
  if(!generados().length)return toast('Primero genere los Excel','err');
- const L=await leerGenerados(),sub=subCarpeta();
- const zip=await zipar([{path:'METROLOGIA/'},{path:`METROLOGIA/${sub}/`},...L.map(it=>({path:`METROLOGIA/${sub}/${it.name}`,blob:it.blob}))]);
- const f=new File([zip],`METROLOGIA - ${sub}.zip`,{type:'application/zip'});
- if(await compartir([f],'METROLOGIA')){marcarCel(L);toast('Guarde el ZIP en Archivos y tóquelo: se crea la carpeta METROLOGIA › '+sub)}
+ const L=await leerGenerados(),subs=[...new Set(L.map(it=>subCarpeta(it.q)))];
+ const zip=await zipar([{path:'METROLOGIA/'},...subs.map(x=>({path:`METROLOGIA/${x}/`})),...L.map(it=>({path:`METROLOGIA/${subCarpeta(it.q)}/${it.name}`,blob:it.blob}))]);
+ const f=new File([zip],`METROLOGIA${subs.length===1?' - '+subs[0]:''}.zip`,{type:'application/zip'});
+ if(await compartir([f],'METROLOGIA')){marcarCel(L);toast('Guarde el ZIP en Archivos y tóquelo: se crea la carpeta METROLOGIA')}
 });
 document.addEventListener('input',ev=>{
  const el=ev.target,d=el.dataset;
