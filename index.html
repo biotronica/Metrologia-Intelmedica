@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v19</title>
+<title>Metrología · Intelmedica v20</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -164,6 +164,12 @@ const faltanLec=(q)=>{const t=T(q);return PUNTOS(t).filter(p=>obligatorio(t,q,p)
 const faltaProg=q=>{const t=T(q);return t.check==='prog'&&PUNTOS(t).some(p=>val(q,p.prog.cell)===null)};
 // Manovacuómetro: la capacidad máxima es de vacío, se escribe con "-" delante automáticamente.
 const capNeg=(x,q)=>T(q)===TIPOS.mvac&&x.k==='capacidad';
+// Manovacuómetro: las lecturas del patrón (columnas C–F) se toman en kPa y en la plantilla van en MPa (÷1000).
+const lecKPa=q=>T(q)===TIPOS.mvac;
+const aMPa=n=>Number((n/1000).toPrecision(12));
+// Para comparar con el Valor IBC (±10 % y error), la lectura en kPa se pasa a las unidades del instrumento.
+const KPA_A={psi:0.1450377377,bar:0.01,kPa:1,MPa:0.001,mmHg:7.500616827,inHg:0.2952998751,cmH2O:10.19716213,'kgf/cm²':0.01019716213};
+const lecU=(q,v)=>v===null||!lecKPa(q)?v:v*(KPA_A[q.unidades]??1);
 const faltaExtra=q=>(A(q).extra||[]).filter(x=>x.num?num(q[x.k])===null:!String(q[x.k]||'').trim()).map(x=>x.l.replace(' *','').toLowerCase());
 // Campos vacíos de la TOMA DE DATOS (lecturas, valores nominales, condiciones ambientales, capacidad/resolución).
 // Si el metrólogo confirma "no tenerlos en cuenta", el certificado se genera con esas casillas en blanco.
@@ -184,7 +190,7 @@ const completo=q=>!faltan(q).length;
 const TOL=0.10;
 const mediana=a=>{const b=[...a].sort((x,y)=>x-y),m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])/2};
 function fuera(q,p,l){const t=T(q),v=val(q,l.cell);if(v===null)return false;
- if(t.check==='prog'){const n=val(q,p.prog.cell);return n!==null&&n!==0&&Math.abs(v-n)/Math.abs(n)>TOL}
+ if(t.check==='prog'){const n=val(q,p.prog.cell),w=lecU(q,v);return n!==null&&n!==0&&Math.abs(w-n)/Math.abs(n)>TOL}
  const g=p.lec.filter(x=>x.k===l.k).map(x=>val(q,x.cell)).filter(x=>x!==null);if(g.length<3)return false;const md=mediana(g);return md!==0&&Math.abs(v-md)/Math.abs(md)>TOL}
 const celdasFuera=q=>PUNTOS(T(q)).flatMap(p=>p.lec.filter(l=>fuera(q,p,l)).map(l=>l.cell+'='+q.v[l.cell]+'/'+(q.v[p.prog.cell]??'')));
 const nFuera=q=>celdasFuera(q).length;
@@ -195,7 +201,7 @@ const generable=q=>completo(q)&&confirmado(q);
 const prom=(q,cells)=>{const v=cells.map(c=>val(q,c)).filter(x=>x!==null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null};
 function statsTxt(q,p){const t=T(q);
  if(t.check==='grupo'){const pt=prom(q,p.lec.filter(l=>l.k==='pt').map(l=>l.cell)),eq=prom(q,p.lec.filter(l=>l.k==='eq').map(l=>l.cell));return`Prom. patrón <b>${fmtN(pt)}</b> · Prom. equipo <b>${fmtN(eq)}</b> · Error <b>${fmtN(pt!=null&&eq!=null?eq-pt:null)}</b>`}
- const pr=prom(q,p.lec.map(l=>l.cell)),n=val(q,p.prog.cell);return{p:fmtN(pr),e:fmtN(pr!=null&&n!=null?(t.archivo==='flujo'?n-pr:pr-n):null)}}
+ const pr=prom(q,p.lec.map(l=>l.cell)),n=val(q,p.prog.cell),pu=lecU(q,pr);return{p:fmtN(pr),e:fmtN(pu!=null&&n!=null?(t.archivo==='flujo'?n-pu:pu-n):null)}}
 const chip=q=>!q.hecho&&!confirmado(q)?'<span class="chip err">Revisar</span>':q.hecho?'<span class="chip ok">Generado</span>':q.err?'<span class="chip err">Error</span>':completo(q)?'<span class="chip warn">Listo</span>':'<span class="chip gray">Incompleto</span>';
 
 /* =================== Google =================== */
@@ -282,7 +288,7 @@ async function generar(q,est){
   ['tIni','tFin','hIni','hFin'].forEach(k=>{const n=num(q[k]);put(C[k],n===null?'':n)});
   put(C.equipo,txt(q.equipo));put(C.serie,txt(q.serie));put(C.marca,txt(q.marca));put(C.activo,txt(q.activo));put(C.modelo,txt(q.modelo));put(C.ubicacion,txt(q.ubicacion));
   (a.extra||[]).forEach(x=>put(x.cell,x.num?(capNeg(x,q)&&num(q[x.k])!==null?-Math.abs(num(q[x.k])):num(q[x.k])):String(q[x.k]||'')));
-  PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();put(p.prog.cell,num(pv)!==null?num(pv):(MAY(pv)||(t.check==='prog'?'':'NI')));p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,n===null?'':n)})});
+  PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();put(p.prog.cell,num(pv)!==null?num(pv):(MAY(pv)||(t.check==='prog'?'':'NI')));p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,n===null?'':lecKPa(q)?aMPa(n):n)})});
   est('Escribiendo los datos…');
   await api(SH+tmp.id+'/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data:d})});
   // Manómetros: se deja visible la hoja del certificado que corresponde al tipo elegido.
@@ -391,7 +397,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v19';
+const VERSION='v20';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
@@ -437,7 +443,7 @@ function seccionHtml(q,t,sc){
   <b>Error</b>${P.map(p=>`<span class="st" id="se_${p.id}">${statsTxt(q,p).e}</span>`).join('')}</div></div>`}
  if(sc.render==='rows'){return`<div class="card"><div class="card-title">${esc(sc.titulo)}${q.unidades?' ('+esc(q.unidades)+')':''}</div><div class="lec lec5" style="grid-template-columns:40px repeat(5,minmax(0,1fr))"><span class="h">% rango</span><span class="h">Valor IBC</span>${sc.cols.map(c=>`<span class="h">${c}</span>`).join('')}
   ${sc.puntos.map(p=>`<b style="font-size:12px">${p.label}</b>${inP(q,p)}${p.lec.map(l=>inC(q,p,l)).join('')}<span></span><span class="muted small" style="grid-column:span 5;margin:-2px 0 6px" id="ss_${p.id}">${(s=>`Prom. <b>${s.p}</b> · Error <b>${s.e}</b>`)(statsTxt(q,p))}</span>`).join('')}</div>
-  <p class="muted small" style="margin:8px 0 0">Valor IBC: valor del instrumento en cada punto. Lecturas del patrón sin corregir: 1ª y 2ª serie, creciente (↑) y decreciente (↓).</p></div>`}
+  <p class="muted small" style="margin:8px 0 0">Valor IBC: valor del instrumento en cada punto. Lecturas del patrón sin corregir: 1ª y 2ª serie, creciente (↑) y decreciente (↓).${lecKPa(q)?' <b>Lecturas del patrón en kPa:</b> la app las pasa a MPa al escribirlas en la plantilla.':''}</p></div>`}
  return`<div class="card"><div class="card-title">${esc(sc.titulo)}</div>${sc.puntos.map(p=>`<div class="vp"><div class="vph"><b>${esc(p.label)}</b><label>Programado ${inP(q,p)}</label></div>
   <div class="lec" style="grid-template-columns:44px repeat(2,minmax(0,1fr))"><span></span><span class="h">Patrón (Ept)</span><span class="h">Equipo (EBP)</span>
   ${[0,1,2,3].map(m=>`<b>M${m+1}</b>${p.lec.filter(l=>l.m===m).map(l=>inC(q,p,l)).join('')}`).join('')}</div>
