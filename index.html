@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v25</title>
+<title>Metrología · Intelmedica v26</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -310,8 +310,10 @@ async function generar(q,est){
   const meta=await api(SH+tmp.id+'?fields=sheets.properties(sheetId,title,hidden)');
   const hoja=(meta.sheets.find(s=>s.properties.title.trim()===a.hoja)||meta.sheets[0]).properties.title;
   // Todo el texto va en MAYÚSCULAS (menos las unidades de presión, p. ej. kPa).
-  const d=[],put=(a,v)=>d.push({range:`'${hoja}'!${a}`,values:[[v]]}),txt=v=>{v=MAY(v).trim();return v===''?'NI':v};
-  put(C.nombre,MAY(K.nombre).trim());put(C.contacto,MAY(K.contacto));put(C.direccion,MAY(K.direccion));put(C.telefono,MAY(K.telefono));
+  // Información del equipo y del cliente (serie, N.º interno, modelo, teléfono…): va como TEXTO, para que
+  // Sheets no la convierta en número y se conserven los ceros de adelante (p. ej. serie 00123).
+  const d=[],put=(a,v)=>d.push({range:`'${hoja}'!${a}`,values:[[v]]}),tx=v=>/^[0-9+\-=.,]/.test(v)?"'"+v:v,txt=v=>{v=MAY(v).trim();return v===''?'NI':tx(v)};
+  put(C.nombre,tx(MAY(K.nombre).trim()));put(C.contacto,tx(MAY(K.contacto).trim()));put(C.direccion,tx(MAY(K.direccion).trim()));put(C.telefono,tx(MAY(K.telefono).trim()));
   put(C.lugar,G.lugar==='En Sitio'?'EN SITIO':MAY(a.lab));if(G.metrologo)put(C.metrologo,MAY(G.metrologo));put(C.recepcion,G.recepcion);put(C.fecha,G.fecha);put(C.certificado,"'"+cert(q));
   ['tIni','tFin','hIni','hFin'].forEach(k=>{const n=num(q[k]);put(C[k],n===null?'':n)});
   put(C.equipo,txt(q.equipo));put(C.serie,txt(q.serie));put(C.marca,txt(q.marca));put(C.activo,txt(q.activo));put(C.modelo,txt(q.modelo));put(C.ubicacion,txt(q.ubicacion));
@@ -425,7 +427,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v25';
+const VERSION='v26';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
