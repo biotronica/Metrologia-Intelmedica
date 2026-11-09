@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v26</title>
+<title>Metrología · Intelmedica v28</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -40,6 +40,7 @@ input:focus,select:focus{outline:2px solid var(--teal);border-color:var(--teal)}
 .eq .t{font-weight:700;font-size:15px}.eq .s{font-size:12.5px;color:var(--muted);margin-top:2px}.eq .main{flex:1;min-width:0}
 .chip{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:700;white-space:nowrap}
 .chip.ok{background:#e3f4ea;color:var(--success)}.chip.warn{background:#fdf1dc;color:#9a6a12}.chip.gray{background:#eef1f4;color:var(--muted)}.chip.err{background:#fbe3e5;color:var(--danger)}
+.cert.certbad{background:var(--danger)}input.certbad{background:#fde4e6;border-color:var(--danger);color:var(--danger);font-weight:800}
 .cert{display:inline-block;background:var(--navy);color:#fff;border-radius:6px;padding:1px 8px;font-size:12px;font-weight:700;margin-right:6px}
 .lec{display:grid;grid-template-columns:56px repeat(3,1fr);gap:6px;align-items:center}
 .lec input{margin:0;text-align:center;padding:10px 4px}.lec b{font-size:13px;color:var(--muted)}.lec .h{font-size:11.5px;color:var(--muted);text-align:center;font-weight:600}
@@ -157,6 +158,13 @@ function eqNuevo(prev){const t=T(),v={},mismo=prev&&(prev.tpl||ST.tpl)===ST.tpl;
 const aa=()=>(ST.gen.fecha||hoy()).slice(2,4);
 const cert=q=>{const s=String(q.certificado||'').trim().replace(/\s+/g,'');if(!s)return'';const m=/^(\d+)(?:-(\d{2}))?$/.exec(s);if(!m)return s;return q.acred==='si'?m[1]:m[1]+'-'+(m[2]||aa())};
 const certOk=q=>q.acred==='si'?/^\d+$/.test(cert(q)):q.acred==='no'&&/^\d+-\d{2}$/.test(cert(q));
+// N.º de dígitos del certificado: se compara con los demás certificados de la toma con el MISMO tipo de sticker
+// (acreditado / no acreditado). Si tiene más o menos dígitos que la mayoría, se marca en rojo (aviso, no bloquea).
+const digCert=q=>((/^(\d+)/.exec(String(q.certificado||'').trim())||[])[1]||'').length;
+function digEsperados(q){const c={};ST.eqs.forEach(x=>{if(x!==q&&x.acred&&x.acred===q.acred){const n=digCert(x);if(n)c[n]=(c[n]||0)+1}});
+ const m=Math.max(0,...Object.values(c));return m?Object.keys(c).filter(k=>c[k]===m).map(Number):[]}
+const certDigOk=q=>{const n=digCert(q),e=digEsperados(q);return!n||!q.acred||!e.length||e.includes(n)};
+const certCls=q=>certDigOk(q)?'cert':'cert certbad';
 const certRep=q=>!!cert(q)&&ST.eqs.some(x=>x!==q&&cert(x)===cert(q));
 const val=(q,c)=>num(q.v?.[c]);
 // Puntos obligatorios: con valor programado numérico. En ventiladores, los parámetros NA/NI son
@@ -327,11 +335,62 @@ async function generar(q,est){
   const r=await fetch(`${DRV}/${encodeURIComponent(tmp.id)}/export?mimeType=${encodeURIComponent(MIME_XLSX)}`,{headers:{Authorization:'Bearer '+token}});
   if(!r.ok)throw new Error('No se pudo exportar a Excel (HTTP '+r.status+')');
   const ex=await driveList(`'${dq(cAnio)}' in parents and name='${dq(nombre+'.xlsx')}' and trashed=false`);
-  const blob=await r.blob();
+  let blob=await r.blob();
+  try{blob=await arreglarImpresion(blob,tpl)}catch(e){console.warn('No se pudo copiar la configuración de impresión',e)}
   const fx=await subir(blob,{name:nombre+'.xlsx',parents:[cAnio]},MIME_XLSX,ex[0]?.id);
   q.hecho=`https://drive.google.com/file/d/${fx.id}/view`;q.err='';q.cel='';q.archivo=nombre+'.xlsx';guardar();
   idbPut(q.id,{name:nombre+'.xlsx',blob}).catch(()=>{});
  }finally{api(`${DRV}/${encodeURIComponent(tmp.id)}?supportsAllDrives=true`,{method:'DELETE'}).catch(()=>{})}
+}
+
+
+/* ============ configuración de impresión ============ */
+// Al exportar desde Google Sheets se pierde la configuración de impresión de la plantilla (área de impresión,
+// márgenes, escala, ajuste a página, saltos de página, hoja activa). Aquí se copia de la plantilla original
+// al Excel generado, hoja por hoja (por nombre).
+let jszipP=null;
+const cargarJSZip=()=>window.JSZip?Promise.resolve(window.JSZip):(jszipP=jszipP||new Promise((ok,ko)=>{const s=document.createElement('script');
+ s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';s.onload=()=>ok(window.JSZip);s.onerror=()=>{jszipP=null;ko(new Error('No cargó JSZip'))};document.head.appendChild(s)}));
+const NS_M='http://schemas.openxmlformats.org/spreadsheetml/2006/main',NS_R='http://schemas.openxmlformats.org/officeDocument/2006/relationships',NS_PR='http://schemas.openxmlformats.org/package/2006/relationships';
+const ORDEN_WS=['sheetPr','dimension','sheetViews','sheetFormatPr','cols','sheetData','sheetCalcPr','sheetProtection','protectedRanges','scenarios','autoFilter','sortState','dataConsolidate','customSheetViews','mergeCells','phoneticPr','conditionalFormatting','dataValidations','hyperlinks','printOptions','pageMargins','pageSetup','headerFooter','rowBreaks','colBreaks','customProperties','cellWatches','ignoredErrors','smartTags','drawing','legacyDrawing','legacyDrawingHF','drawingHF','picture','oleObjects','controls','webPublishItems','tableParts','extLst'];
+const ORDEN_WB=['fileVersion','fileSharing','workbookPr','workbookProtection','bookViews','sheets','functionGroups','externalReferences','definedNames','calcPr','oleSize','customWorkbookViews','pivotCaches','smartTagPr','smartTagTypes','webPublishing','fileRecoveryPr','webPublishObjects','extLst'];
+const hijos=(el,n)=>[...el.childNodes].filter(x=>x.nodeType===1&&x.localName===n);
+function insertarOrdenado(padre,nodo,orden){const k=orden.indexOf(nodo.localName);const sig=[...padre.childNodes].find(x=>x.nodeType===1&&orden.indexOf(x.localName)>k);padre.insertBefore(nodo,sig||null)}
+async function hojasDe(z){const P=new DOMParser(),wb=P.parseFromString(await z.file('xl/workbook.xml').async('string'),'application/xml'),
+ rels=P.parseFromString(await z.file('xl/_rels/workbook.xml.rels').async('string'),'application/xml'),R={};
+ [...rels.getElementsByTagNameNS(NS_PR,'Relationship')].forEach(r=>{let t=r.getAttribute('Target');t=t.startsWith('/')?t.slice(1):'xl/'+t.replace(/^\.\//,'');R[r.getAttribute('Id')]=t});
+ const H=[...wb.getElementsByTagNameNS(NS_M,'sheet')].map((s,i)=>({i,el:s,nombre:s.getAttribute('name').trim(),ruta:R[s.getAttributeNS(NS_R,'id')],oculta:!!s.getAttribute('state')&&s.getAttribute('state')!=='visible'}));
+ return{wb,H}}
+async function arreglarImpresion(outBlob,tplBlob){
+ const JSZip=await cargarJSZip(),zO=await JSZip.loadAsync(outBlob),zT=await JSZip.loadAsync(tplBlob),P=new DOMParser(),S=new XMLSerializer();
+ const O=await hojasDe(zO),Tp=await hojasDe(zT);
+ for(const ht of Tp.H){const ho=O.H.find(h=>h.nombre===ht.nombre);if(!ho||!ht.ruta||!ho.ruta||!zT.file(ht.ruta)||!zO.file(ho.ruta))continue;
+  const dt=P.parseFromString(await zT.file(ht.ruta).async('string'),'application/xml'),dO=P.parseFromString(await zO.file(ho.ruta).async('string'),'application/xml');
+  const wt=dt.documentElement,wo=dO.documentElement;
+  // ajuste a página (sheetPr › pageSetUpPr)
+  const spT=hijos(wt,'sheetPr')[0],pT=spT&&hijos(spT,'pageSetUpPr')[0];let spO=hijos(wo,'sheetPr')[0];
+  if(spO)hijos(spO,'pageSetUpPr').forEach(x=>spO.removeChild(x));
+  if(pT){if(!spO){spO=dO.createElementNS(NS_M,'sheetPr');insertarOrdenado(wo,spO,ORDEN_WS)}const n=dO.importNode(pT,true);const ref=[...spO.childNodes].find(x=>x.nodeType===1&&x.localName==='outlinePr');spO.insertBefore(n,ref?ref.nextSibling:null);
+   // pageSetUpPr va después de tabColor y outlinePr
+   const tc=hijos(spO,'tabColor')[0],op=hijos(spO,'outlinePr')[0];if(op)spO.insertBefore(n,op.nextSibling);else if(tc)spO.insertBefore(n,tc.nextSibling);else spO.insertBefore(n,spO.firstChild)}
+  for(const nom of ['printOptions','pageMargins','pageSetup','headerFooter','rowBreaks','colBreaks']){
+   hijos(wo,nom).forEach(x=>wo.removeChild(x));
+   const t=hijos(wt,nom)[0];if(!t)continue;if(nom==='headerFooter'&&/&G/.test(t.textContent))continue;
+   const n=dO.importNode(t,true);if(nom==='pageSetup'){n.removeAttributeNS(NS_R,'id');[...n.attributes].filter(a=>a.localName==='id'&&a.prefix).forEach(a=>n.removeAttributeNode(a))}
+   insertarOrdenado(wo,n,ORDEN_WS)}
+  zO.file(ho.ruta,S.serializeToString(dO))}
+ // áreas de impresión y títulos (nombres definidos _xlnm.*) y hoja activa
+ const wbO=O.wb.documentElement,wbT=Tp.wb.documentElement;
+ let dnO=hijos(wbO,'definedNames')[0];
+ if(dnO)[...hijos(dnO,'definedName')].filter(d=>/^_xlnm\.(Print_Area|Print_Titles)$/.test(d.getAttribute('name'))).forEach(d=>dnO.removeChild(d));
+ const dnT=hijos(wbT,'definedNames')[0];
+ if(dnT)hijos(dnT,'definedName').filter(d=>/^_xlnm\.(Print_Area|Print_Titles)$/.test(d.getAttribute('name'))).forEach(d=>{
+  const ht=Tp.H[+d.getAttribute('localSheetId')],ho=ht&&O.H.find(h=>h.nombre===ht.nombre);if(!ho)return;
+  if(!dnO){dnO=O.wb.createElementNS(NS_M,'definedNames');insertarOrdenado(wbO,dnO,ORDEN_WB)}
+  const n=O.wb.importNode(d,true);n.setAttribute('localSheetId',String(ho.i));dnO.appendChild(n)});
+ if(dnO&&!hijos(dnO,'definedName').length)wbO.removeChild(dnO);
+ zO.file('xl/workbook.xml',S.serializeToString(O.wb));
+ return await zO.generateAsync({type:'blob',mimeType:MIME_XLSX,compression:'DEFLATE'});
 }
 
 
@@ -427,7 +486,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v26';
+const VERSION='v28';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
@@ -454,14 +513,14 @@ function vEquipos(){
  const t=T(),cuenta=k=>ST.eqs.filter(q=>(q.tpl||ST.tpl)===k).length;
  return topbar('Equipos',`Paso 2 de 3 · ${esc(ST.cli.nombre||'Cliente')}`,'atrasCliente')+`<div class="content">
  <div class="card"><div class="card-title">Equipos tomados (${ST.eqs.length})</div>
- ${ST.eqs.map((q,i)=>`<div class="eq" data-a="editar" data-id="${q.id}"><div class="main"><div class="t">${q.certificado?`<span class="cert">${esc(cert(q))}</span>`:''}${i+1}. ${esc(q.equipo)} ${q.marca?'· '+esc(q.marca):''}</div><div class="s"><b>${esc(T(q).tipo)}</b> · Serie ${esc(q.serie||'—')}${q.activo?' · '+esc(q.activo):''}${q.ubicacion?' · '+esc(q.ubicacion):''}</div></div>${chip(q)}</div>`).join('')||'<div class="empty">Aún no hay equipos. Elija el tipo y pulse “+ Agregar”.</div>'}</div>
+ ${ST.eqs.map((q,i)=>`<div class="eq" data-a="editar" data-id="${q.id}"><div class="main"><div class="t">${q.certificado?`<span class="${certCls(q)}">${esc(cert(q))}</span>`:''}${i+1}. ${esc(q.equipo)} ${q.marca?'· '+esc(q.marca):''}</div><div class="s"><b>${esc(T(q).tipo)}</b> · Serie ${esc(q.serie||'—')}${q.activo?' · '+esc(q.activo):''}${q.ubicacion?' · '+esc(q.ubicacion):''}</div></div>${chip(q)}</div>`).join('')||'<div class="empty">Aún no hay equipos. Elija el tipo y pulse “+ Agregar”.</div>'}</div>
  <div class="card"><div class="card-title">Agregar equipo</div>
  <div class="tipos">${Object.entries(TIPOS).map(([k,x])=>`<button class="tipo ${ST.tpl===k?'on':''}" data-a="tipo" data-id="${k}"><b>${esc(x.tipo)}</b><span class="small muted">${cuenta(k)?cuenta(k)+' tomado(s)':ARCHIVOS[x.archivo].nombre.split(' ')[0]}</span></button>`).join('')}</div>
  <p class="muted small" style="margin:8px 0">Cambiar de tipo no borra los equipos ya tomados.</p>
  <button class="btn block" data-a="agregar">+ Agregar ${esc(t.tipo.toLowerCase())}</button></div></div>
  <div class="bottom"><div class="in"><button class="btn ghost" data-a="atrasCliente">‹ Cliente</button><button class="btn navy" data-a="paso" data-id="generar" ${ST.eqs.length?'':'disabled'}>Generar →</button></div></div>`;
 }
-const certPrev=q=>!String(q.certificado).trim()?'':certRep(q)?`<span style="color:var(--danger);font-weight:700">⚠ El certificado ${esc(cert(q))} ya está en otro equipo</span>`:!q.acred?'<span class="muted">Elija primero si el sticker es acreditado o no acreditado.</span>':certOk(q)?`Quedará: <span class="cert">${esc(cert(q))}</span>`:`<span style="color:var(--danger);font-weight:700">${q.acred==='si'?'Acreditado: escriba solo el número, p. ej. 42710':'Use el formato número-AA, p. ej. 42710-26'}</span>`;
+const certPrev=q=>!String(q.certificado).trim()?'':certRep(q)?`<span style="color:var(--danger);font-weight:700">⚠ El certificado ${esc(cert(q))} ya está en otro equipo</span>`:!q.acred?'<span class="muted">Elija primero si el sticker es acreditado o no acreditado.</span>':certOk(q)?`Quedará: <span class="${certCls(q)}">${esc(cert(q))}</span>${certDigOk(q)?'':`<br><span style="color:var(--danger);font-weight:700">⚠ Tiene ${digCert(q)} dígitos y los demás certificados ${q.acred==='si'?'acreditados':'no acreditados'} de esta toma tienen ${digEsperados(q).join(' o ')}. Revise el número.</span>`}`:`<span style="color:var(--danger);font-weight:700">${q.acred==='si'?'Acreditado: escriba solo el número, p. ej. 42710':'Use el formato número-AA, p. ej. 42710-26'}</span>`;
 const avisoLec=q=>{const n=nFuera(q);if(!n)return'';const c=cuentaFuera(q);return`<div class="aviso">⚠ ${n} lectura(s) fuera de ±10 % ${T(q).check==='prog'?'del valor nominal':'de las demás lecturas del mismo parámetro'}:
  ${c.dig?`<br><span class="ley dig"></span><b>${c.dig} en rojo: posible error de digitación.</b> No coinciden con las demás lecturas del mismo punto, o la coma o el signo parecen equivocados. Revise y corrija.`:''}
  ${c.real?`<br><span class="ley real"></span><b style="color:#a35400">${c.real} en naranja: fuera de tolerancia real.</b> <span style="color:#a35400">Coinciden con las demás lecturas del punto, pero todas se alejan más del 10 % del valor nominal: el equipo está descalibrado.</span>`:''}
@@ -490,7 +549,7 @@ function vEditor(){
  return topbar(`${esc(t.tipo)} ${i+1}`,esc(ST.cli.nombre),'cerrarEditor')+`<div class="content">
  <div class="card"><div class="card-title">Certificado e identificación</div>
  <div class="small" style="font-weight:600;margin-bottom:6px">Sticker *</div><div class="tipos" style="margin-bottom:12px">${[['si','Acreditado','Solo el número · 42710'],['no','No acreditado','Número-AA · 42710-'+aa()]].map(([k,t,d])=>`<button type="button" class="tipo ${q.acred===k?'on':''}" data-a="acred" data-id="${k}"><b>${t}</b><span class="small muted">${d}</span></button>`).join('')}</div>
- ${qi('certificado','N.º de certificado *'+(q.acred==='no'?' (el -AA del año se agrega solo)':''),'inputmode="numeric" placeholder="Ej. 42710"')}<div class="small" id="certPrev" style="margin:-6px 0 12px">${certPrev(q)}</div>
+ ${qi('certificado','N.º de certificado *'+(q.acred==='no'?' (el -AA del año se agrega solo)':''),`inputmode="numeric" placeholder="Ej. 42710" class="${certDigOk(q)?'':'certbad'}"`)}<div class="small" id="certPrev" style="margin:-6px 0 12px">${certPrev(q)}</div>
  <div class="g2">${qi('equipo','Equipo')}${qi('marca','Fabricante / marca')}${qi('modelo','Modelo')}${qi('serie','Serie * (NI si no tiene)')}${qi('activo','N.º interno / activo','placeholder="NI"')}${qi('ubicacion','Ubicación')}</div></div>
  <div class="card"><div class="card-title">Condiciones ambientales</div>
  <div class="g2">${qi('tIni','Temp. inicial (°C)','inputmode="decimal"')}${qi('tFin','Temp. final (°C)','inputmode="decimal"')}${qi('hIni','HR inicial (%)','inputmode="decimal"')}${qi('hFin','HR final (%)','inputmode="decimal"')}</div></div>
@@ -510,7 +569,7 @@ function vGenerar(){
  <div class="small">${[...new Set(ST.eqs.map(subCarpeta))].map(x=>`📁 Documentos compartidos › <b>${CONFIG.CARPETA_METRO}</b> › <b>${esc(carpetaToma())}</b> › <b>${esc(x)}</b>`).join('<br>')||'📁 Documentos compartidos › <b>'+CONFIG.CARPETA_METRO+'</b> › <b>'+esc(carpetaToma())+'</b> › (tipo de equipo)'}</div>
  <div class="muted small" style="margin-top:4px">Si las carpetas no existen, la app las crea.</div></div>
  <div class="card"><div class="card-title">Equipos</div>
- ${ST.eqs.map(q=>`<div class="eq" style="cursor:default"><div class="main"><div class="t">${q.certificado?`<span class="cert">${esc(cert(q))}</span>`:''}${esc(q.equipo)} · S/N ${esc(q.serie||'—')}</div><div class="s">${q.err?`<span style="color:var(--danger)">${esc(q.err)}</span>`:q.hecho?`<a href="${esc(q.hecho)}" target="_blank" rel="noopener">📄 Abrir Excel en Drive</a>`:!confirmado(q)?`<span style="color:var(--danger)">${nFuera(q)} lectura(s) fuera de ±10 % (${esc(txtFuera(q))}): corrija o confirme en el equipo</span>`:completo(q)?(nFuera(q)?'Listo · lecturas fuera de tolerancia confirmadas':'Listo para generar'):soloVac(q)?`<span style="color:#8a6d00">${vacios(q).length} campo(s) vacío(s): ¿llenarlos o no tenerlos en cuenta?</span>`:'Falta: '+esc(faltan(q).join(', '))}</div></div>${chip(q)}${soloVac(q)?`<button class="btn sm" data-a="vacios1" data-id="${q.id}">Campos vacíos</button>`:generable(q)?`<button class="btn sm ${q.hecho?'ghost':''}" data-a="gen1" data-id="${q.id}">${q.hecho?'🔄 Regenerar':'Generar'}</button>`:`<button class="btn sm ghost" data-a="editar" data-id="${q.id}">${completo(q)?'Revisar':'Completar'}</button>`}</div>`).join('')}
+ ${ST.eqs.map(q=>`<div class="eq" style="cursor:default"><div class="main"><div class="t">${q.certificado?`<span class="${certCls(q)}">${esc(cert(q))}</span>`:''}${esc(q.equipo)} · S/N ${esc(q.serie||'—')}</div><div class="s">${q.err?`<span style="color:var(--danger)">${esc(q.err)}</span>`:q.hecho?`<a href="${esc(q.hecho)}" target="_blank" rel="noopener">📄 Abrir Excel en Drive</a>`:!confirmado(q)?`<span style="color:var(--danger)">${nFuera(q)} lectura(s) fuera de ±10 % (${esc(txtFuera(q))}): corrija o confirme en el equipo</span>`:completo(q)?(nFuera(q)?'Listo · lecturas fuera de tolerancia confirmadas':'Listo para generar'):soloVac(q)?`<span style="color:#8a6d00">${vacios(q).length} campo(s) vacío(s): ¿llenarlos o no tenerlos en cuenta?</span>`:'Falta: '+esc(faltan(q).join(', '))}</div></div>${chip(q)}${soloVac(q)?`<button class="btn sm" data-a="vacios1" data-id="${q.id}">Campos vacíos</button>`:generable(q)?`<button class="btn sm ${q.hecho?'ghost':''}" data-a="gen1" data-id="${q.id}">${q.hecho?'🔄 Regenerar':'Generar'}</button>`:`<button class="btn sm ghost" data-a="editar" data-id="${q.id}">${completo(q)?'Revisar':'Completar'}</button>`}</div>`).join('')}
  ${(n=>n&&listos?`<button class="btn ghost block" data-a="regenTodos" style="margin-top:6px">🔄 Regenerar todos (${n})</button><p class="muted small" style="margin:6px 0 0">Vuelve a generar los Excel ya generados con los datos actuales; en Drive se reemplazan.</p>`:'')(ST.eqs.filter(q=>q.hecho&&generable(q)).length)}
  <div class="status" id="estado"></div></div>
  ${inc?`<p class="muted small">${inc} equipo(s) incompleto(s) no se generan.</p>`:''}
@@ -535,7 +594,7 @@ function histLista(){
  return L.map(h=>{const S=h.st,E=S.eqs||[],g=E.filter(q=>q.hecho).length,tipos=[...new Set(E.map(q=>T(q).tipo))].join(', '),actual=h.id===ST.histId;
   return`<div class="eq" style="cursor:default;align-items:flex-start"><div class="main"><div class="t">${esc(MAY(S.cli?.nombre)||'SIN CLIENTE')}${actual?' <span class="chip warn">Abierta</span>':''}</div>
   <div class="s">Calibración ${fFecha(S.gen?.fecha)} · ${E.length} equipo(s) · ${g===E.length?'todos generados':`${g} de ${E.length} generado(s)`}<br>${esc(tipos)}</div>
-  <div class="s" style="margin-top:4px">${E.map(q=>q.certificado?`<span class="cert">${esc(cert(q))}</span>`:'').join(' ')}</div></div>
+  <div class="s" style="margin-top:4px">${E.map(q=>q.certificado?`<span class="${certCls(q)}">${esc(cert(q))}</span>`:'').join(' ')}</div></div>
   <div style="display:flex;flex-direction:column;gap:6px"><button class="btn sm" data-a="histAbrir" data-id="${h.id}">Abrir</button><button class="btn sm ghost" data-a="histBorrar" data-id="${h.id}" title="Borrar del historial">🗑</button></div></div>`}).join('')}
 function vHistorial(){
  return topbar('Historial','Tomas de datos anteriores','cerrarHist')+`<div class="content"><div class="card"><div class="card-title">📋 Tomas de datos (${HIST.length})</div>
@@ -636,7 +695,7 @@ document.addEventListener('input',ev=>{
  const q=ST.eqs.find(x=>x.id===ST.editando);if(!q)return;
  if(d.q&&el.tagName!=='SELECT')q[d.q]=el.value;else if(d.cell&&d.kpa){q.v=q.v||{};q.vk=q.vk||{};q.mpa=true;q.vk[d.cell]=el.value;const n=num(el.value);q.v[d.cell]=n===null?el.value:String(aMPa(n))}else if(d.cell){q.v=q.v||{};q.v[d.cell]=el.value}else return;
  q.hecho='';q.err='';
- if(d.q==='certificado'){const p=$('#certPrev');if(p)p.innerHTML=certPrev(q)}
+ if(d.q==='certificado'){const p=$('#certPrev');if(p)p.innerHTML=certPrev(q);el.classList.toggle('certbad',!certDigOk(q))}
  if(d.cell)refrescarLec(q,d.p);
  if(d.cell&&!d.prog)programarAvance(el);
  guardar();
