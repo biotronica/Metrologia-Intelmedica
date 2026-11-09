@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v28</title>
+<title>Metrología · Intelmedica v29</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -361,9 +361,50 @@ async function hojasDe(z){const P=new DOMParser(),wb=P.parseFromString(await z.f
  [...rels.getElementsByTagNameNS(NS_PR,'Relationship')].forEach(r=>{let t=r.getAttribute('Target');t=t.startsWith('/')?t.slice(1):'xl/'+t.replace(/^\.\//,'');R[r.getAttribute('Id')]=t});
  const H=[...wb.getElementsByTagNameNS(NS_M,'sheet')].map((s,i)=>({i,el:s,nombre:s.getAttribute('name').trim(),ruta:R[s.getAttributeNS(NS_R,'id')],oculta:!!s.getAttribute('state')&&s.getAttribute('state')!=='visible'}));
  return{wb,H}}
+// Rutas dentro del xlsx
+const dirDe=p=>p.includes('/')?p.slice(0,p.lastIndexOf('/')):'',baseDe=p=>p.slice(p.lastIndexOf('/')+1),relsDe=p=>(dirDe(p)?dirDe(p)+'/':'')+'_rels/'+baseDe(p)+'.rels';
+function resolver(base,t){if(t.startsWith('/'))return t.slice(1);const a=dirDe(base).split('/').filter(Boolean);t.split('/').forEach(x=>{if(x==='..')a.pop();else if(x&&x!=='.')a.push(x)});return a.join('/')}
+function relativa(desde,a){const A=dirDe(desde).split('/').filter(Boolean),B=a.split('/');let i=0;while(i<A.length&&i<B.length-1&&A[i]===B[i])i++;return'../'.repeat(A.length-i)+B.slice(i).join('/')}
+const NS_CT='http://schemas.openxmlformats.org/package/2006/content-types',T_DRAW='http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing';
+// Copia del template al Excel generado los dibujos de cada hoja (logo e imágenes), con su posición y tamaño:
+// Google Sheets los cambia al exportar (el logo salía deformado o como otra imagen).
+async function copiarDibujos(zO,zT,ht,ho,dO,ctO,ctT,copiadas){
+ const P=new DOMParser(),S=new XMLSerializer(),wo=dO.documentElement;
+ const relT=zT.file(relsDe(ht.ruta));if(!relT)return;
+ const rT=P.parseFromString(await relT.async('string'),'application/xml');
+ const drT=[...rT.getElementsByTagNameNS(NS_PR,'Relationship')].filter(r=>r.getAttribute('Type')===T_DRAW&&r.getAttribute('TargetMode')!=='External');
+ if(!drT.length)return;
+ const ctTipo=(doc,ruta)=>{const o=[...doc.getElementsByTagNameNS(NS_CT,'Override')].find(x=>x.getAttribute('PartName')==='/'+ruta);if(o)return{o:o.getAttribute('ContentType')};
+  const ext=ruta.split('.').pop().toLowerCase(),d=[...doc.getElementsByTagNameNS(NS_CT,'Default')].find(x=>x.getAttribute('Extension').toLowerCase()===ext);return d?{d:d.getAttribute('ContentType'),ext}:null};
+ const ctPoner=(ruta,tipo)=>{const raiz=ctO.documentElement;if(!tipo)return;
+  if(tipo.o){[...raiz.getElementsByTagNameNS(NS_CT,'Override')].filter(x=>x.getAttribute('PartName')==='/'+ruta).forEach(x=>raiz.removeChild(x));const e=ctO.createElementNS(NS_CT,'Override');e.setAttribute('PartName','/'+ruta);e.setAttribute('ContentType',tipo.o);raiz.appendChild(e)}
+  else if(![...raiz.getElementsByTagNameNS(NS_CT,'Default')].some(x=>x.getAttribute('Extension').toLowerCase()===tipo.ext)){const e=ctO.createElementNS(NS_CT,'Default');e.setAttribute('Extension',tipo.ext);e.setAttribute('ContentType',tipo.d);raiz.insertBefore(e,raiz.firstChild)}};
+ async function copiar(rutaT){if(copiadas[rutaT])return copiadas[rutaT];const f=zT.file(rutaT);if(!f)return null;
+  const nueva=(dirDe(rutaT)?dirDe(rutaT)+'/':'')+'tpl_'+baseDe(rutaT);copiadas[rutaT]=nueva;
+  zO.file(nueva,await f.async('uint8array'),{createFolders:false});ctPoner(nueva,ctTipo(ctT,rutaT));
+  const rf=zT.file(relsDe(rutaT));
+  if(rf){const rd=P.parseFromString(await rf.async('string'),'application/xml');
+   for(const r of [...rd.getElementsByTagNameNS(NS_PR,'Relationship')]){if(r.getAttribute('TargetMode')==='External')continue;
+    const dest=await copiar(resolver(rutaT,r.getAttribute('Target')));if(dest)r.setAttribute('Target',relativa(nueva,dest))}
+   zO.file(relsDe(nueva),S.serializeToString(rd),{createFolders:false})}
+  return nueva}
+ // quitar los dibujos que dejó Google Sheets en la hoja
+ const rutaRelO=relsDe(ho.ruta),fRelO=zO.file(rutaRelO);
+ const rO=fRelO?P.parseFromString(await fRelO.async('string'),'application/xml'):P.parseFromString(`<Relationships xmlns="${NS_PR}"/>`,'application/xml');
+ for(const r of [...rO.getElementsByTagNameNS(NS_PR,'Relationship')].filter(r=>r.getAttribute('Type')===T_DRAW)){const viejo=resolver(ho.ruta,r.getAttribute('Target'));
+  const rv=zO.file(relsDe(viejo));if(rv){const d=P.parseFromString(await rv.async('string'),'application/xml');[...d.getElementsByTagNameNS(NS_PR,'Relationship')].forEach(x=>{if(x.getAttribute('TargetMode')!=='External'&&/\/image$/.test(x.getAttribute('Type')))zO.remove(resolver(viejo,x.getAttribute('Target')))})}
+  zO.remove(viejo);zO.remove(relsDe(viejo));[...ctO.getElementsByTagNameNS(NS_CT,'Override')].filter(x=>x.getAttribute('PartName')==='/'+viejo).forEach(x=>x.parentNode.removeChild(x));r.parentNode.removeChild(r)}
+ hijos(wo,'drawing').forEach(x=>wo.removeChild(x));
+ // poner el dibujo original de la plantilla
+ const nuevo=await copiar(resolver(ht.ruta,drT[0].getAttribute('Target')));if(!nuevo)return;
+ const id='rIdTplDibujo',rel=rO.createElementNS(NS_PR,'Relationship');rel.setAttribute('Id',id);rel.setAttribute('Type',T_DRAW);rel.setAttribute('Target',relativa(ho.ruta,nuevo));rO.documentElement.appendChild(rel);
+ zO.file(rutaRelO,S.serializeToString(rO),{createFolders:false});
+ const dr=dO.createElementNS(NS_M,'drawing');dr.setAttributeNS(NS_R,'r:id',id);insertarOrdenado(wo,dr,ORDEN_WS)}
+
 async function arreglarImpresion(outBlob,tplBlob){
  const JSZip=await cargarJSZip(),zO=await JSZip.loadAsync(outBlob),zT=await JSZip.loadAsync(tplBlob),P=new DOMParser(),S=new XMLSerializer();
  const O=await hojasDe(zO),Tp=await hojasDe(zT);
+ const ctO=P.parseFromString(await zO.file('[Content_Types].xml').async('string'),'application/xml'),ctT=P.parseFromString(await zT.file('[Content_Types].xml').async('string'),'application/xml'),copiadas={};
  for(const ht of Tp.H){const ho=O.H.find(h=>h.nombre===ht.nombre);if(!ho||!ht.ruta||!ho.ruta||!zT.file(ht.ruta)||!zO.file(ho.ruta))continue;
   const dt=P.parseFromString(await zT.file(ht.ruta).async('string'),'application/xml'),dO=P.parseFromString(await zO.file(ho.ruta).async('string'),'application/xml');
   const wt=dt.documentElement,wo=dO.documentElement;
@@ -378,7 +419,9 @@ async function arreglarImpresion(outBlob,tplBlob){
    const t=hijos(wt,nom)[0];if(!t)continue;if(nom==='headerFooter'&&/&G/.test(t.textContent))continue;
    const n=dO.importNode(t,true);if(nom==='pageSetup'){n.removeAttributeNS(NS_R,'id');[...n.attributes].filter(a=>a.localName==='id'&&a.prefix).forEach(a=>n.removeAttributeNode(a))}
    insertarOrdenado(wo,n,ORDEN_WS)}
+  try{await copiarDibujos(zO,zT,ht,ho,dO,ctO,ctT,copiadas)}catch(e){console.warn('No se pudo copiar el logo',e)}
   zO.file(ho.ruta,S.serializeToString(dO))}
+ zO.file('[Content_Types].xml',S.serializeToString(ctO));
  // áreas de impresión y títulos (nombres definidos _xlnm.*) y hoja activa
  const wbO=O.wb.documentElement,wbT=Tp.wb.documentElement;
  let dnO=hijos(wbO,'definedNames')[0];
@@ -486,7 +529,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v28';
+const VERSION='v29';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
