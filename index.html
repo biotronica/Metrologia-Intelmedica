@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v16</title>
+<title>Metrología · Intelmedica v18</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -266,8 +266,8 @@ async function generar(q,est){
  if(!completo(q))throw new Error('Faltan datos en el equipo');
  if(!confirmado(q))throw new Error('Hay lecturas fuera de ±10 % sin corregir ni confirmar');
  est('Buscando la carpeta del cliente…');
- // Destino: Documentos compartidos › METROLOGIA › tipo de equipo › FECHA CLIENTE (las carpetas se crean si no existen).
- const cMet=await subcarpeta(AJ.comp||CONFIG.COMPARTIDOS,CONFIG.CARPETA_METRO),cAnio=await subcarpeta(await subcarpeta(cMet,subCarpeta(q)),carpetaToma());
+ // Destino: Documentos compartidos › METROLOGIA › FECHA CLIENTE › tipo de equipo (las carpetas se crean si no existen).
+ const cMet=await subcarpeta(AJ.comp||CONFIG.COMPARTIDOS,CONFIG.CARPETA_METRO),cAnio=await subcarpeta(await subcarpeta(cMet,carpetaToma()),subCarpeta(q));
  est('Copiando la plantilla oficial…');
  const tpl=await plantilla(q);
  const nombre=MAY(`${cert(q)} ${t.tipo.replace(/ \/.*$/,'')} ${q.serie&&!/^ni$/i.test(q.serie)?q.serie:(q.activo||'NI')}`).replace(/[\\/:*?"<>|#%]+/g,'-').trim();
@@ -391,7 +391,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v16';
+const VERSION='v18';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
@@ -466,12 +466,13 @@ function vGenerar(){
  const soloVac=q=>!completo(q)&&!faltanFijos(q).length&&confirmado(q);
  const listos=ST.eqs.filter(q=>(generable(q)||soloVac(q))&&!q.hecho).length,inc=ST.eqs.filter(q=>!completo(q)&&!soloVac(q)).length;
  return topbar('Generar',`Paso 3 de 3 · ${esc(ST.cli.nombre)}`,'atrasEquipos')+`<div class="content">
- ${ST.histId?`<div class="card" style="border-left:4px solid var(--teal)"><div class="card-title">📋 Abierta desde el Historial</div><p class="small" style="margin:0">Para volver a generar un certificado pulse <b>Rehacer</b>. Si corrige algo del equipo (‹ Equipos), queda listo para generar otra vez. El Excel en Drive se reemplaza por el nuevo (misma carpeta y mismo nombre).</p></div>`:''}
+ ${ST.histId?`<div class="card" style="border-left:4px solid var(--teal)"><div class="card-title">📋 Abierta desde el Historial</div><p class="small" style="margin:0">Para volver a generar pulse <b>🔄 Regenerar</b> en cada equipo o <b>🔄 Regenerar todos</b>. Si corrige algo del equipo (‹ Equipos), queda listo para generar otra vez. El Excel en Drive se reemplaza por el nuevo (misma carpeta y mismo nombre).</p></div>`:''}
  <div class="card"><div class="card-title">Carpeta de destino en Drive</div>
- <div class="small">${[...new Set(ST.eqs.map(subCarpeta))].map(x=>`📁 Documentos compartidos › <b>${CONFIG.CARPETA_METRO}</b> › <b>${esc(x)}</b> › <b>${esc(carpetaToma())}</b>`).join('<br>')||'📁 Documentos compartidos › <b>'+CONFIG.CARPETA_METRO+'</b> › (tipo de equipo) › <b>'+esc(carpetaToma())+'</b>'}</div>
+ <div class="small">${[...new Set(ST.eqs.map(subCarpeta))].map(x=>`📁 Documentos compartidos › <b>${CONFIG.CARPETA_METRO}</b> › <b>${esc(carpetaToma())}</b> › <b>${esc(x)}</b>`).join('<br>')||'📁 Documentos compartidos › <b>'+CONFIG.CARPETA_METRO+'</b> › <b>'+esc(carpetaToma())+'</b> › (tipo de equipo)'}</div>
  <div class="muted small" style="margin-top:4px">Si las carpetas no existen, la app las crea.</div></div>
  <div class="card"><div class="card-title">Equipos</div>
- ${ST.eqs.map(q=>`<div class="eq" style="cursor:default"><div class="main"><div class="t">${q.certificado?`<span class="cert">${esc(cert(q))}</span>`:''}${esc(q.equipo)} · S/N ${esc(q.serie||'—')}</div><div class="s">${q.err?`<span style="color:var(--danger)">${esc(q.err)}</span>`:q.hecho?`<a href="${esc(q.hecho)}" target="_blank" rel="noopener">📄 Abrir Excel en Drive</a>`:!confirmado(q)?`<span style="color:var(--danger)">${nFuera(q)} lectura(s) fuera de ±10 %: corrija o confirme en el equipo</span>`:completo(q)?(nFuera(q)?'Listo · lecturas fuera de tolerancia confirmadas':'Listo para generar'):soloVac(q)?`<span style="color:#8a6d00">${vacios(q).length} campo(s) vacío(s): ¿llenarlos o no tenerlos en cuenta?</span>`:'Falta: '+esc(faltan(q).join(', '))}</div></div>${chip(q)}${soloVac(q)?`<button class="btn sm" data-a="vacios1" data-id="${q.id}">Campos vacíos</button>`:generable(q)?`<button class="btn sm ${q.hecho?'ghost':''}" data-a="gen1" data-id="${q.id}">${q.hecho?'Rehacer':'Generar'}</button>`:`<button class="btn sm ghost" data-a="editar" data-id="${q.id}">${completo(q)?'Revisar':'Completar'}</button>`}</div>`).join('')}
+ ${ST.eqs.map(q=>`<div class="eq" style="cursor:default"><div class="main"><div class="t">${q.certificado?`<span class="cert">${esc(cert(q))}</span>`:''}${esc(q.equipo)} · S/N ${esc(q.serie||'—')}</div><div class="s">${q.err?`<span style="color:var(--danger)">${esc(q.err)}</span>`:q.hecho?`<a href="${esc(q.hecho)}" target="_blank" rel="noopener">📄 Abrir Excel en Drive</a>`:!confirmado(q)?`<span style="color:var(--danger)">${nFuera(q)} lectura(s) fuera de ±10 %: corrija o confirme en el equipo</span>`:completo(q)?(nFuera(q)?'Listo · lecturas fuera de tolerancia confirmadas':'Listo para generar'):soloVac(q)?`<span style="color:#8a6d00">${vacios(q).length} campo(s) vacío(s): ¿llenarlos o no tenerlos en cuenta?</span>`:'Falta: '+esc(faltan(q).join(', '))}</div></div>${chip(q)}${soloVac(q)?`<button class="btn sm" data-a="vacios1" data-id="${q.id}">Campos vacíos</button>`:generable(q)?`<button class="btn sm ${q.hecho?'ghost':''}" data-a="gen1" data-id="${q.id}">${q.hecho?'🔄 Regenerar':'Generar'}</button>`:`<button class="btn sm ghost" data-a="editar" data-id="${q.id}">${completo(q)?'Revisar':'Completar'}</button>`}</div>`).join('')}
+ ${(n=>n?`<button class="btn ghost block" data-a="regenTodos" style="margin-top:6px">🔄 Regenerar todos (${n})</button><p class="muted small" style="margin:6px 0 0">Vuelve a generar los Excel ya generados con los datos actuales; en Drive se reemplazan.</p>`:'')(ST.eqs.filter(q=>q.hecho&&generable(q)).length)}
  <div class="status" id="estado"></div></div>
  ${inc?`<p class="muted small">${inc} equipo(s) incompleto(s) no se generan.</p>`:''}
  ${celCard()}
@@ -485,7 +486,7 @@ function vAjustes(){
  ${Object.entries(ARCHIVOS).map(([k,p])=>`<label>ID de ${esc(p.nombre.replace(/\.xlsx$/,''))} (vacío = buscarla sola)<input data-tplid="${k}" value="${esc(AJ.tplIds[k]||'')}"></label>`).join('')}
  <button class="btn navy block" data-a="guardarAjustes">Guardar</button></div>
  <div class="card"><div class="card-title">Sesión</div><p class="muted small" style="margin-top:0">${conectado()?'Conectado a Google.':'Sin conexión con Google.'}</p><button class="btn ghost block" data-a="conectar">${conectado()?'Volver a conectar':'Conectar con Google'}</button></div>
- <div class="card"><details><summary>Cómo funciona</summary><ol class="small muted"><li>Datos del cliente y de la calibración, una sola vez.</li><li>Primero se elige el tipo de equipo (flujómetro, manómetro de baja o de alta, manovacuómetro o ventilador) y se usa su plantilla.</li><li>Cada equipo: N.º de certificado, identificación, condiciones ambientales y lecturas.</li><li>Generar: se copia la plantilla oficial, se escriben los datos en sus celdas de entrada y se guarda el Excel en Drive › Documentos compartidos › ${CONFIG.CARPETA_METRO} › tipo de equipo › fecha y cliente. Las fórmulas y la gráfica de la plantilla calculan el certificado.</li></ol></details></div></div>`;
+ <div class="card"><details><summary>Cómo funciona</summary><ol class="small muted"><li>Datos del cliente y de la calibración, una sola vez.</li><li>Primero se elige el tipo de equipo (flujómetro, manómetro de baja o de alta, manovacuómetro o ventilador) y se usa su plantilla.</li><li>Cada equipo: N.º de certificado, identificación, condiciones ambientales y lecturas.</li><li>Generar: se copia la plantilla oficial, se escriben los datos en sus celdas de entrada y se guarda el Excel en Drive › Documentos compartidos › ${CONFIG.CARPETA_METRO} › fecha y cliente › tipo de equipo. Las fórmulas y la gráfica de la plantilla calculan el certificado.</li></ol></details></div></div>`;
 }
 const fFecha=f=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(f||'');return m?`${m[3]}/${m[2]}/${m[1]}`:esc(f||'—')};
 function histLista(){
@@ -546,6 +547,9 @@ const ACT={
  vacios1:async id=>{const q=ST.eqs.find(x=>x.id===id);if(await preguntarVacios(q))render();else irAVacios(q)},
  gen1:id=>run(async()=>{const q=ST.eqs.find(x=>x.id===id);if(!generable(q))return toast('Corrija o confirme las lecturas en rojo antes de generar','err');try{await generar(q,est);toast('Excel generado ✔')}catch(e){if(!(e instanceof AuthError)){q.err=e.message;guardar()}throw e}finally{render()}}),
  genTodos:()=>run(async()=>{for(const q of ST.eqs.filter(q=>!q.hecho&&!faltanFijos(q).length&&!vaciosOk(q))){if(!(await preguntarVacios(q)))return irAVacios(q)}render();const L=ST.eqs.filter(q=>generable(q)&&!q.hecho);let n=0;for(const q of L){try{await generar(q,m=>est(`(${n+1}/${L.length}) ${m}`));n++}catch(e){if(e instanceof AuthError)throw e;q.err=e.message;guardar()}render()}toast(`${n} de ${L.length} Excel generado(s) ✔`)}),
+ regenTodos:()=>run(async()=>{const L=ST.eqs.filter(q=>q.hecho&&generable(q));if(!L.length)return;
+  if(!(await dialogo('Regenerar todos',`<p>Se volverán a generar <b>${L.length}</b> Excel con los datos actuales. Los que están en Drive se reemplazan.</p>`,[{t:'🔄 Regenerar todos',v:true,cls:'navy'},{t:'Cancelar',v:false,cls:'ghost'}])))return;
+  let n=0;for(const q of L){try{await generar(q,m=>est(`(${n+1}/${L.length}) ${m}`));n++}catch(e){if(e instanceof AuthError)throw e;q.err=e.message;q.hecho='';guardar()}render()}toast(`${n} de ${L.length} Excel regenerado(s) ✔`)}),
  nueva:()=>{if(ST.eqs.some(q=>!q.hecho)&&!confirm('Hay equipos sin generar. ¿Empezar de nuevo de todas formas?'))return;if(ST.eqs.some(q=>q.hecho&&!q.cel)&&!confirm('Hay Excel que no se han guardado en el celular (carpeta METROLOGIA). ¿Empezar de nuevo de todas formas?'))return;if(ST.eqs.length&&!archivar()&&!confirm('No se pudo guardar esta toma de datos en el Historial (memoria llena). ¿Empezar de nuevo de todas formas?'))return;ST.eqs.forEach(q=>idbDel(q.id).catch(()=>{}));const g={...ST.gen};ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;guardar();render();scrollTo(0,0)}
 };
 document.addEventListener('click',ev=>{const b=ev.target.closest('[data-a]');if(!b||b.disabled)return;if(b.tagName==='A'&&b.href)return;ev.preventDefault();ACT[b.dataset.a]?.(b.dataset.id,b)});
