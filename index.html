@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v23</title>
+<title>Metrología · Intelmedica v25</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -148,7 +148,7 @@ const A=q=>ARCHIVOS[T(q).archivo];
 const PUNTOS=t=>t.secciones.flatMap(sc=>sc.puntos);
 function eqNuevo(prev){const t=T(),v={},mismo=prev&&(prev.tpl||ST.tpl)===ST.tpl;PUNTOS(t).forEach(p=>{v[p.prog.cell]=(mismo?prev?.v?.[p.prog.cell]:null)??String(p.prog.def)});
  const q={id:uid(),tpl:ST.tpl,certificado:'',acred:prev?.acred||'',equipo:t.equipo,marca:'',modelo:'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:prev?.tIni||'',tFin:prev?.tFin||'',hIni:prev?.hIni||'',hFin:prev?.hFin||'',v,hecho:'',err:''};
- (A().extra||[]).forEach(x=>q[x.k]=(mismo&&prev?.[x.k])||'');if(!mismo)q.ubicacion=prev?.ubicacion||'';return q}
+ (A().extra||[]).forEach(x=>q[x.k]=(mismo&&prev?.[x.k])||'');if(!mismo)q.ubicacion=prev?.ubicacion||'';q.mpa=T(q)===TIPOS.mvac&&(q.unidades==='kPa'||q.unidades==='MPa');return q}
 // Borradores de la versión anterior (solo flujómetro): se pasan al formato nuevo.
 (function(){(ST.eqs||[]).forEach(q=>{if(!q.tpl&&ST.tpl)q.tpl=ST.tpl})})();
 (function migrar(){let c=false;(ST.eqs||[]).forEach(q=>{if(q.v||!q.nom)return;q.v={};['B','C','D'].forEach((col,j)=>{q.v[col+'149']=String(q.nom[j]??'');(q.lec[j]||[]).forEach((x,i)=>q.v[col+(150+i)]=x)});delete q.nom;delete q.lec;c=true});if(c&&!ST.tpl)ST.tpl='flujo'})();
@@ -170,10 +170,18 @@ const capNeg=(x,q)=>T(q)===TIPOS.mvac&&x.k==='capacidad';
 // En las demás unidades (mmHg, psi…) las lecturas van en la unidad del instrumento, tal como se digitan.
 const lecKPa=q=>T(q)===TIPOS.mvac&&(q.unidades==='kPa'||q.unidades==='MPa');
 const aMPa=n=>Number((n/1000).toPrecision(12));
-// En kPa se muestra, debajo de cada punto, cómo quedan las lecturas en MPa en la plantilla.
-const mpaTxt=(q,p)=>!lecKPa(q)?'':(L=>L.some(x=>x!==null)?`<br><span style="color:var(--teal-dark)">En la plantilla (MPa): <b>${L.map(x=>x===null?'—':aMPa(x).toLocaleString('es-CO',{maximumFractionDigits:8})).join(' · ')}</b></span>`:'')(p.lec.map(l=>val(q,l.cell)));
-// Para el ±10 % y el error, la lectura del patrón se pasa a las unidades del instrumento (kPa → MPa si el IBC está en MPa).
-const lecU=(q,v)=>v===null||!(lecKPa(q)&&q.unidades==='MPa')?v:aMPa(v);
+// Desde v24 las lecturas del patrón se GUARDAN en MPa (q.v) y lo digitado en kPa queda en q.vk.
+// La casilla muestra kPa mientras se escribe y MPa al salir de ella.
+const fmtMPa=x=>{const n=num(x);return n===null?String(x??''):n.toLocaleString('es-CO',{maximumFractionDigits:8,useGrouping:false})};
+const kpaDe=(q,c)=>{const k=q.vk?.[c];if(k!=null&&k!=='')return fmtMPa(k);const n=val(q,c);return n===null?(q.v?.[c]??''):fmtMPa(String(Number((n*1000).toPrecision(12))))};
+const mpaTxt=(q,p)=>!lecKPa(q)?'':(L=>L.some(x=>x!=='')?`<br><span style="color:var(--teal-dark)">Digitado en kPa: <b>${L.map(x=>x===''?'—':esc(x)).join(' · ')}</b></span>`:'')(p.lec.map(l=>val(q,l.cell)===null?'':kpaDe(q,l.cell)));
+// Pasa las lecturas guardadas en kPa (versiones anteriores, o al cambiar las unidades) a MPa, o al revés.
+function migrarMPa(q){if(!q||T(q)!==TIPOS.mvac)return;const on=lecKPa(q),C=PUNTOS(T(q)).flatMap(p=>p.lec.map(l=>l.cell));
+ if(on&&!q.mpa){q.vk=q.vk||{};C.forEach(c=>{const n=val(q,c);if(n!==null){q.vk[c]=q.v[c];q.v[c]=String(aMPa(n))}});q.mpa=true}
+ else if(!on&&q.mpa){C.forEach(c=>{if(val(q,c)!==null)q.v[c]=kpaDe(q,c)});q.vk={};q.mpa=false}}
+(ST.eqs||[]).forEach(migrarMPa);
+// Para el ±10 % y el error: las lecturas están en MPa; si el IBC está en kPa se pasan a kPa.
+const lecU=(q,v)=>v===null||!(lecKPa(q)&&q.unidades==='kPa')?v:Number((v*1000).toPrecision(12));
 const fmtP=x=>x==null?'—':Number(x.toPrecision(6)).toLocaleString('es-CO',{maximumFractionDigits:8});
 const faltaExtra=q=>(A(q).extra||[]).filter(x=>x.num?num(q[x.k])===null:!String(q[x.k]||'').trim()).map(x=>x.l.replace(' *','').toLowerCase());
 // Campos vacíos de la TOMA DE DATOS (lecturas, valores nominales, condiciones ambientales, capacidad/resolución).
@@ -221,7 +229,7 @@ const prom=(q,cells)=>{const v=cells.map(c=>val(q,c)).filter(x=>x!==null);return
 function statsTxt(q,p){const t=T(q);
  if(t.check==='grupo'){const pt=prom(q,p.lec.filter(l=>l.k==='pt').map(l=>l.cell)),eq=prom(q,p.lec.filter(l=>l.k==='eq').map(l=>l.cell));return`Prom. patrón <b>${fmtN(pt)}</b> · Prom. equipo <b>${fmtN(eq)}</b> · Error <b>${fmtN(pt!=null&&eq!=null?eq-pt:null)}</b>`}
  const pr=prom(q,p.lec.map(l=>l.cell)),n=val(q,p.prog.cell),pu=lecU(q,pr),e=pu!=null&&n!=null?(t.archivo==='flujo'?n-pu:pu-n):null;
- if(lecKPa(q))return{p:fmtN(pr)+' kPa',e:fmtP(e)+' '+q.unidades};return{p:fmtN(pr),e:fmtN(e)}}
+ if(lecKPa(q))return{p:fmtP(pr)+' MPa',e:fmtP(e)+' '+q.unidades};return{p:fmtN(pr),e:fmtN(e)}}
 const chip=q=>!q.hecho&&!confirmado(q)?'<span class="chip err">Revisar</span>':q.hecho?'<span class="chip ok">Generado</span>':q.err?'<span class="chip err">Error</span>':completo(q)?'<span class="chip warn">Listo</span>':'<span class="chip gray">Incompleto</span>';
 
 /* =================== Google =================== */
@@ -308,7 +316,7 @@ async function generar(q,est){
   ['tIni','tFin','hIni','hFin'].forEach(k=>{const n=num(q[k]);put(C[k],n===null?'':n)});
   put(C.equipo,txt(q.equipo));put(C.serie,txt(q.serie));put(C.marca,txt(q.marca));put(C.activo,txt(q.activo));put(C.modelo,txt(q.modelo));put(C.ubicacion,txt(q.ubicacion));
   (a.extra||[]).forEach(x=>put(x.cell,x.num?(capNeg(x,q)&&num(q[x.k])!==null?-Math.abs(num(q[x.k])):num(q[x.k])):String(q[x.k]||'')));
-  PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();put(p.prog.cell,num(pv)!==null?num(pv):(MAY(pv)||(t.check==='prog'?'':'NI')));p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,n===null?'':lecKPa(q)?aMPa(n):n)})});
+  PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();put(p.prog.cell,num(pv)!==null?num(pv):(MAY(pv)||(t.check==='prog'?'':'NI')));p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,n===null?'':n)})});
   est('Escribiendo los datos…');
   await api(SH+tmp.id+'/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data:d})});
   // Manómetros: se deja visible la hoja del certificado que corresponde al tipo elegido.
@@ -417,7 +425,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v23';
+const VERSION='v25';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
@@ -456,7 +464,7 @@ const avisoLec=q=>{const n=nFuera(q);if(!n)return'';const c=cuentaFuera(q);retur
  ${c.dig?`<br><span class="ley dig"></span><b>${c.dig} en rojo: posible error de digitación.</b> No coinciden con las demás lecturas del mismo punto, o la coma o el signo parecen equivocados. Revise y corrija.`:''}
  ${c.real?`<br><span class="ley real"></span><b style="color:#a35400">${c.real} en naranja: fuera de tolerancia real.</b> <span style="color:#a35400">Coinciden con las demás lecturas del punto, pero todas se alejan más del 10 % del valor nominal: el equipo está descalibrado.</span>`:''}
  <br>Si todas son reales, confírmelo:<label style="display:flex;gap:8px;align-items:center;margin:8px 0 0;color:var(--danger)"><input type="checkbox" data-conf="1" style="width:22px;height:22px;margin:0" ${confirmado(q)?'checked':''}> Confirmo que las lecturas marcadas (rojo y naranja) son reales y se deben certificar así</label></div>`};
-const inC=(q,p,l)=>`<input data-cell="${l.cell}" data-p="${p.id}" value="${esc(q.v[l.cell]??'')}" inputmode="decimal" placeholder="—" class="${claseFuera(q,p,l)}">`;
+const inC=(q,p,l)=>`<input data-cell="${l.cell}" data-p="${p.id}" ${lecKPa(q)?'data-kpa="1" ':''}value="${esc(lecKPa(q)?fmtMPa(q.v[l.cell]):(q.v[l.cell]??''))}" inputmode="decimal" placeholder="${lecKPa(q)?'kPa':'—'}" class="${claseFuera(q,p,l)}">`;
 const inP=(q,p)=>`<input data-cell="${p.prog.cell}" data-p="${p.id}" data-prog="1" value="${esc(q.v[p.prog.cell]??'')}" ${T(q).check==='prog'?'inputmode="decimal"':''}>`;
 function seccionHtml(q,t,sc){
  if(sc.render==='cols'){const P=sc.puntos;return`<div class="card"><div class="card-title">${esc(sc.titulo)}</div><div class="lec" style="grid-template-columns:56px repeat(${P.length},minmax(0,1fr))"><span></span>${P.map(p=>`<span class="h">${esc(p.label)}</span>`).join('')}
@@ -464,9 +472,9 @@ function seccionHtml(q,t,sc){
   ${sc.filas.map((f,i)=>`<b>${f}</b>`+P.map(p=>inC(q,p,p.lec[i])).join('')).join('')}
   <b>Prom.</b>${P.map(p=>`<span class="st" id="sp_${p.id}">${statsTxt(q,p).p}</span>`).join('')}
   <b>Error</b>${P.map(p=>`<span class="st" id="se_${p.id}">${statsTxt(q,p).e}</span>`).join('')}</div></div>`}
- if(sc.render==='rows'){return`<div class="card"><div class="card-title">${esc(sc.titulo)}${lecKPa(q)?` (IBC en ${esc(q.unidades)} · patrón en kPa)`:q.unidades?' ('+esc(q.unidades)+')':''}</div><div class="lec lec5" style="grid-template-columns:40px repeat(5,minmax(0,1fr))"><span class="h">% rango</span><span class="h">Valor IBC</span>${sc.cols.map(c=>`<span class="h">${c}</span>`).join('')}
+ if(sc.render==='rows'){return`<div class="card"><div class="card-title">${esc(sc.titulo)}${lecKPa(q)?` (IBC en ${esc(q.unidades)} · patrón: se digita en kPa, queda en MPa)`:q.unidades?' ('+esc(q.unidades)+')':''}</div><div class="lec lec5" style="grid-template-columns:40px repeat(5,minmax(0,1fr))"><span class="h">% rango</span><span class="h">Valor IBC</span>${sc.cols.map(c=>`<span class="h">${c}</span>`).join('')}
   ${sc.puntos.map(p=>`<b style="font-size:12px">${p.label}</b>${inP(q,p)}${p.lec.map(l=>inC(q,p,l)).join('')}<span></span><span class="muted small" style="grid-column:span 5;margin:-2px 0 6px" id="ss_${p.id}">${(s=>`Prom. <b>${s.p}</b> · Error <b>${s.e}</b>${mpaTxt(q,p)}`)(statsTxt(q,p))}</span>`).join('')}</div>
-  <p class="muted small" style="margin:8px 0 0">Valor IBC: valor del instrumento en cada punto. Lecturas del patrón sin corregir: 1ª y 2ª serie, creciente (↑) y decreciente (↓).${lecKPa(q)?' <b>Lecturas del patrón en kPa:</b> la app las pasa a MPa al escribirlas en la plantilla.':''}</p></div>`}
+  <p class="muted small" style="margin:8px 0 0">Valor IBC: valor del instrumento en cada punto. Lecturas del patrón sin corregir: 1ª y 2ª serie, creciente (↑) y decreciente (↓).${lecKPa(q)?' <b>Lecturas del patrón:</b> digítelas en <b>kPa</b>; al pasar a la siguiente casilla se convierten y quedan en <b>MPa</b>, que es lo que va a la plantilla.':''}</p></div>`}
  return`<div class="card"><div class="card-title">${esc(sc.titulo)}</div>${sc.puntos.map(p=>`<div class="vp"><div class="vph"><b>${esc(p.label)}</b><label>Programado ${inP(q,p)}</label></div>
   <div class="lec" style="grid-template-columns:44px repeat(2,minmax(0,1fr))"><span></span><span class="h">Patrón (Ept)</span><span class="h">Equipo (EBP)</span>
   ${[0,1,2,3].map(m=>`<b>M${m+1}</b>${p.lec.filter(l=>l.m===m).map(l=>inC(q,p,l)).join('')}`).join('')}</div>
@@ -555,7 +563,7 @@ const ACT={
  cerrarHist:()=>{VISTA='';render();scrollTo(0,0)},
  histAbrir:id=>{const h=HIST.find(x=>x.id===id);if(!h)return;
   if(ST.histId!==id&&ST.eqs.length)archivar();   // la toma actual no se pierde: queda en el historial
-  ST=Object.assign(estadoNuevo(),JSON.parse(JSON.stringify(h.st)));ST.histId=id;ST.paso='generar';ST.editando='';ST.marcarVacios='';
+  ST=Object.assign(estadoNuevo(),JSON.parse(JSON.stringify(h.st)));ST.eqs.forEach(migrarMPa);ST.histId=id;ST.paso='generar';ST.editando='';ST.marcarVacios='';
   VISTA='';guardar();render();scrollTo(0,0);toast('Toma de datos abierta: puede corregir y volver a generar')},
  histBorrar:id=>{const h=HIST.find(x=>x.id===id);if(!h||!confirm(`¿Borrar del historial la toma de datos de ${MAY(h.st.cli?.nombre)||'SIN CLIENTE'}? Los Excel ya generados en Drive no se borran.`))return;
   HIST=HIST.filter(x=>x.id!==id);guardarHist();if(ST.histId===id){delete ST.histId;guardar()}render()},
@@ -612,7 +620,9 @@ ACT.celZip=()=>run(async()=>{
 // la identificación del equipo.
 const REEMPLAZA=new Set(['tIni','tFin','hIni','hFin','capacidad','resolucion']);
 const esReemplazo=el=>el&&el.tagName==='INPUT'&&(el.dataset.cell!==undefined||REEMPLAZA.has(el.dataset.q));
-document.addEventListener('focusin',ev=>{const el=ev.target;if(!esReemplazo(el)||!el.value)return;
+document.addEventListener('focusin',ev=>{const el=ev.target;
+ if(el.dataset?.kpa){const q=ST.eqs.find(x=>x.id===ST.editando);if(q)el.value=val(q,el.dataset.cell)===null?(q.v?.[el.dataset.cell]??''):kpaDe(q,el.dataset.cell)}
+ if(!esReemplazo(el)||!el.value)return;
  const sel=()=>{try{el.setSelectionRange(0,el.value.length)}catch(e){el.select()}};sel();setTimeout(sel,0);setTimeout(sel,60)});
 document.addEventListener('mouseup',ev=>{if(esReemplazo(ev.target)&&document.activeElement===ev.target&&ev.target.selectionStart===0&&ev.target.selectionEnd===ev.target.value.length)ev.preventDefault()},true);
 document.addEventListener('input',ev=>{
@@ -622,23 +632,43 @@ document.addEventListener('input',ev=>{
  if(d.g==='cli'||d.g==='gen'){ST[d.g][d.k]=el.value;if(d.g==='cli'&&d.k==='nombre'){const b=$('#btnSig');if(b)b.disabled=!(el.value.trim()&&ST.tpl)}guardar();return}
  if(d.conf)return;
  const q=ST.eqs.find(x=>x.id===ST.editando);if(!q)return;
- if(d.q&&el.tagName!=='SELECT')q[d.q]=el.value;else if(d.cell){q.v=q.v||{};q.v[d.cell]=el.value}else return;
+ if(d.q&&el.tagName!=='SELECT')q[d.q]=el.value;else if(d.cell&&d.kpa){q.v=q.v||{};q.vk=q.vk||{};q.mpa=true;q.vk[d.cell]=el.value;const n=num(el.value);q.v[d.cell]=n===null?el.value:String(aMPa(n))}else if(d.cell){q.v=q.v||{};q.v[d.cell]=el.value}else return;
  q.hecho='';q.err='';
  if(d.q==='certificado'){const p=$('#certPrev');if(p)p.innerHTML=certPrev(q)}
  if(d.cell)refrescarLec(q,d.p);
+ if(d.cell&&!d.prog)programarAvance(el);
  guardar();
 });
 document.addEventListener('change',ev=>{
  const el=ev.target,d=el.dataset;
- if(d.q&&el.tagName==='SELECT'){const q=ST.eqs.find(x=>x.id===ST.editando);if(q){q[d.q]=el.value;q.hecho='';guardar();render()}return}
+ if(d.q&&el.tagName==='SELECT'){const q=ST.eqs.find(x=>x.id===ST.editando);if(q){q[d.q]=el.value;q.hecho='';migrarMPa(q);guardar();render()}return}
  if(d.conf){const q=ST.eqs.find(x=>x.id===ST.editando);if(q){q.confFuera=el.checked?firmaFuera(q):'';q.hecho='';guardar()}return}
  if(d.g==='gen'&&el.tagName==='SELECT'){ST.gen[d.k]=el.value;guardar();return}
  if(d.g==='cli'&&d.k==='nombre'){const c=CLIENTES.find(x=>norm(x.nombre)===norm(el.value));if(c){if(!ST.cli.contacto)ST.cli.contacto=c.contacto;if(!ST.cli.telefono)ST.cli.telefono=c.telefono;guardar();render()}}
  if(el.id==='candSel'&&el.value){const c=ST.candidatos.find(x=>x.id===el.value);ST.carpeta={id:c.id,name:c.name,cliente:norm(ST.cli.nombre)};guardar();render()}
 });
-document.addEventListener('focusout',ev=>{if(ev.target.dataset?.q!=='certificado')return;const q=ST.eqs.find(x=>x.id===ST.editando);if(q&&certOk(q)){q.certificado=cert(q);ev.target.value=q.certificado;guardar()}});
-// Entre lecturas: Enter pasa a la siguiente casilla (útil en el celular).
-document.addEventListener('keydown',ev=>{if(ev.key!=='Enter'||ev.target.tagName!=='INPUT')return;const L=[...document.querySelectorAll('.content input')];const i=L.indexOf(ev.target);if(i>=0&&L[i+1]){ev.preventDefault();L[i+1].focus()}});
+document.addEventListener('focusout',ev=>{const el=ev.target;if(el.dataset?.kpa){const q=ST.eqs.find(x=>x.id===ST.editando);if(q)el.value=fmtMPa(q.v?.[el.dataset.cell]);return}
+ if(ev.target.dataset?.q!=='certificado')return;const q=ST.eqs.find(x=>x.id===ST.editando);if(q&&certOk(q)){q.certificado=cert(q);ev.target.value=q.certificado;guardar()}});
+// Orden de las lecturas para pasar de casilla: cada columna de arriba hacia abajo; las columnas marcadas
+// con ↓ en la tabla (1ª ↓ y 2ª ↓ de los manómetros) de abajo hacia arriba. Ventilador: en cada parámetro,
+// Patrón M1→M4 y luego Equipo M1→M4.
+function ordenLec(q){const t=T(q),L=[];
+ t.secciones.forEach(sc=>{
+  if(sc.render==='rows')sc.cols.forEach((c,j)=>{const col=sc.puntos.map(p=>p.lec[j].cell);L.push(...(c.includes('↓')?col.reverse():col))});
+  else if(sc.render==='cols')sc.puntos.forEach(p=>L.push(...p.lec.map(l=>l.cell)));
+  else sc.puntos.forEach(p=>['pt','eq'].forEach(k=>L.push(...p.lec.filter(l=>l.k===k).sort((a,b)=>a.m-b.m).map(l=>l.cell))))});
+ return L}
+function irSiguiente(el){const q=ST.eqs.find(x=>x.id===ST.editando);if(!q)return false;const L=ordenLec(q),i=L.indexOf(el.dataset.cell);
+ const sig=i>=0&&L[i+1]&&$(`[data-cell="${L[i+1]}"]:not([data-prog])`);if(!sig)return false;sig.focus();sig.scrollIntoView({block:'center',behavior:'smooth'});return true}
+// Al digitar una lectura, pasa sola a la siguiente casilla tras 0,5 s sin escribir (si el número está completo).
+let tAvance;
+function programarAvance(el){clearTimeout(tAvance);const v=String(el.value).trim();if(num(v)===null||/[.,\-]$/.test(v))return;
+ tAvance=setTimeout(()=>{if(document.activeElement===el)irSiguiente(el)},500)}
+document.addEventListener('focusin',ev=>{if(!ev.target.dataset?.cell)clearTimeout(tAvance)});
+// Enter también pasa a la siguiente casilla (en las lecturas, en el mismo orden).
+document.addEventListener('keydown',ev=>{if(ev.key!=='Enter'||ev.target.tagName!=='INPUT')return;const el=ev.target;
+ if(el.dataset.cell&&!el.dataset.prog){ev.preventDefault();clearTimeout(tAvance);irSiguiente(el);return}
+ const L=[...document.querySelectorAll('.content input')];const i=L.indexOf(el);if(i>=0&&L[i+1]){ev.preventDefault();L[i+1].focus()}});
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 render();
 if(conectado())run(async()=>{await cargarClientes();if(ST.paso==='cliente'&&!ST.editando&&VISTA!=='ajustes'){const a=document.activeElement;if(!a||a===document.body)render()}});
