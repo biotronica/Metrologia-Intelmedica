@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v32</title>
+<title>Metrología · Intelmedica v33</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -88,6 +88,9 @@ const ARCHIVOS={
  mano:{nombre:'F-51-P-SC02 PLANTILLA MANOMETRO BAJA ALTA MANOVACUOMETRO V6.xlsx',busca:'PLANTILLA MANOMETRO',hoja:'DATOS PRIMARIOS MANOMETROS',lab:'Laboratorio de Metrología de INTELMEDICA CORP',
   celdas:{recepcion:'A7',fecha:'A10',nombre:'A15',contacto:'C15',direccion:'E15',telefono:'G15',certificado:'I15',tIni:'B20',tFin:'E20',hIni:'B21',hFin:'E21',equipo:'B24',serie:'F24',marca:'B25',activo:'F25',modelo:'B26',ubicacion:'F26',metrologo:'A31',lugar:'A34'},
   extra:[{k:'capacidad',l:'Capacidad máxima *',cell:'B27',num:true},{k:'unidades',l:'Unidades *',cell:'F27',opts:['psi','bar','kPa','MPa','mmHg','inHg','cmH2O','kgf/cm²']},{k:'resolucion',l:'Resolución *',cell:'B28',num:true}]},
+ mon:{nombre:'F-34-P-SC02 PLANTILLA MONITOR MULTIPARAMETRO V3.xlsx',busca:'PLANTILLA MONITOR MULTIPARAMETRO',hoja:'MONITOR',lab:'Laboratorio de Metrología de INTELMEDICA CORP ',
+  celdas:{nombre:'B14',contacto:'G14',direccion:'B16',telefono:'G16',lugar:'H34',metrologo:'B168',recepcion:'B189',fecha:'F189',certificado:'J189',tIni:'B193',tFin:'E193',hIni:'B195',hFin:'E195',equipo:'B199',serie:'F199',marca:'B201',activo:'F201',modelo:'B203',ubicacion:'F203'},
+  extra:[{k:'ibp',l:'Presión invasiva (IBP) *',opts:['NO TIENE','CANAL 1','CANAL 1 Y 2']}]},
  vent:{nombre:'F-48-P-SC02 PLANTILLA VENTILADOR - MAQ. ANESTESIA V3.xlsx',busca:'PLANTILLA VENTILADOR',hoja:'VENTILADOR',lab:'Laboratorio de Metrología de\nINTELMEDICA CORP ',
   celdas:{nombre:'B15',contacto:'G15',direccion:'B17',telefono:'G17',lugar:'G35',metrologo:'B125',recepcion:'B148',fecha:'F148',certificado:'I148',tIni:'B152',tFin:'E152',hIni:'B154',hFin:'E154',equipo:'B158',serie:'F158',marca:'B160',activo:'F160',modelo:'B162',ubicacion:'F162'}}
 };
@@ -96,12 +99,21 @@ const filasMano=(fila0,pcts,defs)=>pcts.map((p,i)=>({id:'r'+(fila0+i),label:(p*1
 const PARAM_VENT=['Volumen corriente (ml)','Volumen minuto (L/min)','Flujo (lpm)','PEEP (cmH2O)','PIP (cmH2O)','Frecuencia (rpm)','Ti (s)','Relación I:E (I)','Relación I:E (E)'];
 const confVent=(n,fila0,defs)=>({titulo:'Configuración '+n,render:'vent',puntos:PARAM_VENT.map((l,i)=>({id:'c'+n+'p'+i,label:l,prog:{cell:'B'+(fila0+i),def:defs[i]},
  lec:[['C','D'],['E','F'],['G','H'],['I','J']].flatMap(([a,b],m)=>[{cell:a+(fila0+i),k:'pt',m},{cell:b+(fila0+i),k:'eq',m}])}))});
+// Monitor multiparámetro (F-34): valores nominales FIJOS (los de la plantilla). Cada columna es un punto con M1–M4 debajo.
+const colMon=(cols,filaNom,filaM1,labels,noms,pre)=>cols.map((c,i)=>({id:pre+c+filaNom,label:labels[i],prog:{cell:c+filaNom,def:noms[i],fijo:true},lec:[0,1,2,3].map(k=>({cell:c+(filaM1+k)}))}));
+const IBP_LBL=['Sist.','Diast.','Sist.','Diast.','Sist.','Diast.'];
+const tieneIbp=(q,n)=>q.ibp==='CANAL 1 Y 2'||(n===1&&q.ibp==='CANAL 1');
+const bloqueMon=(n,f,noms)=>({titulo:`NIBP · F. cardiaca · F. respiratoria — punto ${n}`,render:'cols',filas:['M1','M2','M3','M4'],puntos:colMon(['B','C','D','E','F'],f,f+1,['Sist. (mmHg)','Diast. (mmHg)','PAM (mmHg)','FC (lpm)','FR (rpm)'],noms,'m')});
+const ibpMon=(n,f)=>[{titulo:`IBP canal ${n} — dinámica (mmHg)`,render:'cols',filas:['M1','M2','M3','M4'],cond:q=>tieneIbp(q,n),puntos:colMon(['B','C','D','E','F','G'],f,f+1,IBP_LBL,[70,40,120,80,190,120],'i')},
+ {titulo:`IBP canal ${n} — estática (mmHg)`,render:'cols',filas:['M1','M2','M3','M4'],cond:q=>tieneIbp(q,n),puntos:colMon(['H','I','J'],f,f+1,['Estática','Estática','Estática'],[0,100,200],'i')}];
 const TIPOS={
  flujo:{archivo:'flujo',tipo:'Flujómetro',equipo:'FLUJOMETRO',check:'prog',secciones:[{titulo:'Lecturas del patrón (L/min)',render:'cols',filas:['M1','M2','M3','M4','M5'],
   puntos:['B','C','D'].map((c,j)=>({id:'n'+c,label:'Valor nominal',prog:{cell:c+'149',def:[2,10,15][j]},lec:[150,151,152,153,154].map(f=>({cell:c+f}))}))}]},
  mbaja:{archivo:'mano',tipo:'Manómetro de baja',equipo:'MANOMETRO',certHoja:'MANOMETRO BAJA MODIFICADO',check:'prog',secciones:[{titulo:'Error de indicación',render:'rows',cols:['1ª ↑','1ª ↓','2ª ↑','2ª ↓'],puntos:filasMano(56,[.075,.125,.25,.5,.75,1],[20,40,80,120,160,200])}]},
  malta:{archivo:'mano',tipo:'Manómetro de alta',equipo:'MANOMETRO',certHoja:'MANOMETRO ALTA MODIFICADO',check:'prog',secciones:[{titulo:'Error de indicación',render:'rows',cols:['1ª ↑','1ª ↓','2ª ↑','2ª ↓'],puntos:filasMano(42,[.075,.125,.25,.5,.75,1],[300,500,1000,2000,3000,4000])}]},
  mvac:{archivo:'mano',tipo:'Manovacuómetro',equipo:'MANOVACUOMETRO',certHoja:'MANOVACUOMETRO MODIFICADO',check:'prog',secciones:[{titulo:'Error de indicación',render:'rows',cols:['1ª ↑','1ª ↓','2ª ↑','2ª ↓'],puntos:filasMano(70,[.1,.2,.3,.5,.75,1],[2,4,6,10,15,20])}]},
+ mon:{archivo:'mon',tipo:'Monitor multiparámetro',equipo:'MONITOR MULTIPARAMETRO',check:'prog',pregIbp:true,secciones:[bloqueMon(1,210,[120,80,93,60,30]),bloqueMon(2,222,[180,140,153,130,60]),bloqueMon(3,234,[80,40,53,40,15]),
+  {titulo:'Saturación de oxígeno SpO2 (%)',render:'cols',filas:['M1','M2','M3','M4'],puntos:colMon(['B','C','D','E'],245,247,['SpO2','SpO2','SpO2','SpO2'],[85,90,95,99],'s')},...ibpMon(1,259),...ibpMon(2,272)]},
  vent:{archivo:'vent',tipo:'Ventilador / Máq. anestesia',equipo:'VENTILADOR',check:'grupo',secciones:[confVent(1,173,[300,4.2,'NI',5,'NA',14,1.4,1,2.1]),confVent(2,186,[400,7.2,'NI',6,'NA',18,0.95,1,2.5]),confVent(3,199,[500,8,'NI',7,'NA',16,0.94,1,3])]}
 };
 const LUGARES=['En Sitio','Laboratorio de Metrología de INTELMEDICA CORP'];
@@ -146,7 +158,9 @@ const MAY=v=>String(v??'').toLocaleUpperCase('es-CO');
 // Cada equipo guarda su propio tipo (q.tpl): en una misma toma de datos puede haber varios tipos.
 const T=q=>TIPOS[(q&&q.tpl)||ST.tpl]||TIPOS.flujo;
 const A=q=>ARCHIVOS[T(q).archivo];
-const PUNTOS=t=>t.secciones.flatMap(sc=>sc.puntos);
+// Secciones con cond (p. ej. IBP del monitor) solo cuentan si aplican al equipo.
+const SECC=(t,q)=>t.secciones.filter(sc=>!sc.cond||!q||sc.cond(q));
+const PUNTOS=(t,q)=>SECC(t,q).flatMap(sc=>sc.puntos);
 function eqNuevo(prev){const t=T(),v={},mismo=prev&&(prev.tpl||ST.tpl)===ST.tpl;PUNTOS(t).forEach(p=>{v[p.prog.cell]=(mismo?prev?.v?.[p.prog.cell]:null)??String(p.prog.def)});
  const q={id:uid(),tpl:ST.tpl,certificado:'',acred:prev?.acred||'',equipo:t.equipo,marca:'',modelo:'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:prev?.tIni||'',tFin:prev?.tFin||'',hIni:prev?.hIni||'',hFin:prev?.hFin||'',v,hecho:'',err:''};
  (A().extra||[]).forEach(x=>q[x.k]=(mismo&&prev?.[x.k])||'');if(!mismo)q.ubicacion=prev?.ubicacion||'';q.mpa=T(q)===TIPOS.mvac&&(q.unidades==='kPa'||q.unidades==='MPa');return q}
@@ -173,8 +187,8 @@ const val=(q,c)=>num(q.v?.[c]);
 // Puntos obligatorios: con valor programado numérico. En ventiladores, los parámetros NA/NI son
 // opcionales, pero si se llena una lectura hay que llenar las ocho.
 const obligatorio=(t,q,p)=>t.check==='prog'||val(q,p.prog.cell)!==null||p.lec.some(l=>String(q.v[l.cell]??'').trim()!=='');
-const faltanLec=(q)=>{const t=T(q);return PUNTOS(t).filter(p=>obligatorio(t,q,p)).reduce((a,p)=>a+p.lec.filter(l=>val(q,l.cell)===null).length,0)};
-const faltaProg=q=>{const t=T(q);return t.check==='prog'&&PUNTOS(t).some(p=>val(q,p.prog.cell)===null)};
+const faltanLec=(q)=>{const t=T(q);return PUNTOS(t,q).filter(p=>obligatorio(t,q,p)).reduce((a,p)=>a+p.lec.filter(l=>val(q,l.cell)===null).length,0)};
+const faltaProg=q=>{const t=T(q);return t.check==='prog'&&PUNTOS(t,q).some(p=>val(q,p.prog.cell)===null)};
 // Manovacuómetro: la capacidad máxima es de vacío, se escribe con "-" delante automáticamente.
 const capNeg=(x,q)=>T(q)===TIPOS.mvac&&x.k==='capacidad';
 // Manovacuómetro con instrumento en kPa o MPa: el patrón se lee en kPa y en la plantilla va en MPa (÷1000).
@@ -200,8 +214,8 @@ const faltaExtra=q=>(A(q).extra||[]).filter(x=>x.num?num(q[x.k])===null:!String(
 const vacios=q=>{const t=T(q),L=[];
  ['tIni','tFin','hIni','hFin'].forEach(k=>{if(num(q[k])===null)L.push(k)});
  (A(q).extra||[]).forEach(x=>{if(x.num&&num(q[x.k])===null)L.push(x.k)});
- if(t.check==='prog')PUNTOS(t).forEach(p=>{if(val(q,p.prog.cell)===null)L.push(p.prog.cell)});
- PUNTOS(t).filter(p=>obligatorio(t,q,p)).forEach(p=>p.lec.forEach(l=>{if(val(q,l.cell)===null)L.push(l.cell)}));
+ if(t.check==='prog')PUNTOS(t,q).forEach(p=>{if(val(q,p.prog.cell)===null)L.push(p.prog.cell)});
+ PUNTOS(t,q).filter(p=>obligatorio(t,q,p)).forEach(p=>p.lec.forEach(l=>{if(val(q,l.cell)===null)L.push(l.cell)}));
  return L};
 const vaciosOk=q=>{const v=vacios(q);return!v.length||q.vaciosOk===v.join(';')};
 const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(!certAnioOk(q)?`año del certificado (después del guion debe ir -${aa()})`:q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q).filter(x=>!vaciosOk(q)||!/capacidad|resoluci/.test(x)),!vaciosOk(q)&&faltaProg(q)&&'valores nominales',!vaciosOk(q)&&(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
@@ -228,9 +242,9 @@ function tipoFuera(q,p,l){const t=T(q),v=lecU(q,val(q,l.cell));
  const md=mediana(o);if(md===0)return v===0?'real':'dig';
  return Math.abs(v-md)/Math.abs(md)>TOL?'dig':'real'}
 const claseFuera=(q,p,l)=>fuera(q,p,l)?'bad '+tipoFuera(q,p,l):'';
-const cuentaFuera=q=>{const c={dig:0,real:0};PUNTOS(T(q)).forEach(p=>p.lec.forEach(l=>{if(fuera(q,p,l))c[tipoFuera(q,p,l)]++}));return c};
+const cuentaFuera=q=>{const c={dig:0,real:0};PUNTOS(T(q),q).forEach(p=>p.lec.forEach(l=>{if(fuera(q,p,l))c[tipoFuera(q,p,l)]++}));return c};
 const txtFuera=q=>{const c=cuentaFuera(q);return[c.dig&&`${c.dig} posible(s) error(es) de digitación`,c.real&&`${c.real} fuera de tolerancia`].filter(Boolean).join(' · ')};
-const celdasFuera=q=>PUNTOS(T(q)).flatMap(p=>p.lec.filter(l=>fuera(q,p,l)).map(l=>l.cell+'='+q.v[l.cell]+'/'+(q.v[p.prog.cell]??'')));
+const celdasFuera=q=>PUNTOS(T(q),q).flatMap(p=>p.lec.filter(l=>fuera(q,p,l)).map(l=>l.cell+'='+q.v[l.cell]+'/'+(q.v[p.prog.cell]??'')));
 const nFuera=q=>celdasFuera(q).length;
 // Firma de las lecturas en rojo: si se cambia alguna, la confirmación deja de valer.
 const firmaFuera=q=>celdasFuera(q).join(';');
@@ -341,8 +355,8 @@ async function generarEq(q,est){
   put(C.lugar,G.lugar==='En Sitio'?'EN SITIO':MAY(a.lab));if(G.metrologo)put(C.metrologo,MAY(G.metrologo));put(C.recepcion,G.recepcion);put(C.fecha,G.fecha);put(C.certificado,"'"+cert(q));
   ['tIni','tFin','hIni','hFin'].forEach(k=>{const n=num(q[k]);put(C[k],n===null?'':n)});
   put(C.equipo,txt(q.equipo));put(C.serie,txt(q.serie));put(C.marca,txt(q.marca));put(C.activo,txt(q.activo));put(C.modelo,txt(q.modelo));put(C.ubicacion,txt(q.ubicacion));
-  (a.extra||[]).forEach(x=>put(x.cell,x.num?(capNeg(x,q)&&num(q[x.k])!==null?-Math.abs(num(q[x.k])):num(q[x.k])):String(q[x.k]||'')));
-  PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();put(p.prog.cell,num(pv)!==null?num(pv):(MAY(pv)||(t.check==='prog'?'':'NI')));p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,n===null?'':n)})});
+  (a.extra||[]).filter(x=>x.cell).forEach(x=>put(x.cell,x.num?(capNeg(x,q)&&num(q[x.k])!==null?-Math.abs(num(q[x.k])):num(q[x.k])):String(q[x.k]||'')));
+  PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();if(!p.prog.fijo)put(p.prog.cell,num(pv)!==null?num(pv):(MAY(pv)||(t.check==='prog'?'':'NI')));p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,n===null?'':n)})});
   est('Escribiendo los datos…');
   await api(SH+tmp.id+'/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data:d})});
   // Manómetros: se deja visible la hoja del certificado que corresponde al tipo elegido.
@@ -550,7 +564,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v32';
+const VERSION='v33';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
@@ -590,7 +604,7 @@ const avisoLec=q=>{const n=nFuera(q);if(!n)return'';const c=cuentaFuera(q);retur
  ${c.real?`<br><span class="ley real"></span><b style="color:#a35400">${c.real} en naranja: fuera de tolerancia real.</b> <span style="color:#a35400">Coinciden con las demás lecturas del punto, pero todas se alejan más del 10 % del valor nominal: el equipo está descalibrado.</span>`:''}
  <br>Si todas son reales, confírmelo:<label style="display:flex;gap:8px;align-items:center;margin:8px 0 0;color:var(--danger)"><input type="checkbox" data-conf="1" style="width:22px;height:22px;margin:0" ${confirmado(q)?'checked':''}> Confirmo que las lecturas marcadas (rojo y naranja) son reales y se deben certificar así</label></div>`};
 const inC=(q,p,l)=>`<input data-cell="${l.cell}" data-p="${p.id}" ${lecKPa(q)?'data-kpa="1" ':''}value="${esc(lecKPa(q)?fmtMPa(q.v[l.cell]):(q.v[l.cell]??''))}" inputmode="decimal" placeholder="${lecKPa(q)?'kPa':'—'}" class="${claseFuera(q,p,l)}">`;
-const inP=(q,p)=>`<input data-cell="${p.prog.cell}" data-p="${p.id}" data-prog="1" value="${esc(q.v[p.prog.cell]??'')}" ${T(q).check==='prog'?'inputmode="decimal"':''}>`;
+const inP=(q,p)=>p.prog.fijo?`<span class="st" style="font-weight:800;color:var(--navy)">${esc(p.prog.def)}</span>`:`<input data-cell="${p.prog.cell}" data-p="${p.id}" data-prog="1" value="${esc(q.v[p.prog.cell]??'')}" ${T(q).check==='prog'?'inputmode="decimal"':''}>`;
 function seccionHtml(q,t,sc){
  if(sc.render==='cols'){const P=sc.puntos;return`<div class="card"><div class="card-title">${esc(sc.titulo)}</div><div class="lec" style="grid-template-columns:56px repeat(${P.length},minmax(0,1fr))"><span></span>${P.map(p=>`<span class="h">${esc(p.label)}</span>`).join('')}
   <b>Nominal</b>${P.map(p=>inP(q,p)).join('')}
@@ -618,7 +632,7 @@ function vEditor(){
  <div class="card"><div class="card-title">Condiciones ambientales</div>
  <div class="g2">${qi('tIni','Temp. inicial (°C)','inputmode="decimal"')}${qi('tFin','Temp. final (°C)','inputmode="decimal"')}${qi('hIni','HR inicial (%)','inputmode="decimal"')}${qi('hFin','HR final (%)','inputmode="decimal"')}</div></div>
  ${(A(q).extra||[]).length?`<div class="card"><div class="card-title">Datos del instrumento</div><div class="g2">${A(q).extra.map(x=>x.opts?`<label>${x.l}<select data-q="${x.k}"><option value="">—</option>${x.opts.map(o=>`<option ${q[x.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:capNeg(x,q)?`<label>${x.l}<div class="negw"><span>−</span><input data-q="${x.k}" value="${esc(String(q[x.k]||'').replace(/^\s*[-−]\s*/,''))}" inputmode="decimal" placeholder="Ej. 30"></div></label>`:qi(x.k,x.l,'inputmode="decimal"')).join('')}</div></div>`:''}
- ${t.secciones.map(sc=>seccionHtml(q,t,sc)).join('')}
+ ${SECC(t,q).map(sc=>seccionHtml(q,t,sc)).join('')}
  <div class="card" style="padding:12px 16px"><div id="avisoLec">${avisoLec(q)}</div>
  <p class="muted small" style="margin:${nFuera(q)?'10px':'0'} 0 0">Las casillas en rojo o naranja se alejan más del 10 % ${t.check==='prog'?'del valor nominal':'de las demás lecturas del mismo parámetro'}: revise si están bien digitadas. Los resultados definitivos los calcula la plantilla oficial.</p></div>
  <button class="btn dan block" data-a="quitar">Quitar este equipo</button></div>
@@ -697,7 +711,9 @@ const ACT={
  paso:id=>{ST.paso=id;guardar();render();scrollTo(0,0)},
  tipo:id=>{if(ST.tpl===id)return;ST.tpl=id;guardar();const y=scrollY;render();scrollTo(0,y)},  // el tipo elegido aplica a los equipos NUEVOS; los ya tomados conservan el suyo
  atrasCliente:()=>ACT.paso('cliente'),atrasEquipos:()=>ACT.paso('equipos'),
- agregar:()=>{const q=eqNuevo(ST.eqs[ST.eqs.length-1]);ST.eqs.push(q);ST.editando=q.id;guardar();render();scrollTo(0,0);setTimeout(()=>$('[data-q=certificado]')?.focus(),60)},
+ agregar:async()=>{const q=eqNuevo(ST.eqs[ST.eqs.length-1]);
+  if(T(q).pregIbp){q.ibp='';const r=await dialogo('Presión invasiva (IBP)','<p>¿Este monitor tiene presión invasiva (IBP)?</p>',[{t:'No tiene',v:'NO TIENE',cls:'ghost'},{t:'Sí — canal 1',v:'CANAL 1',cls:'navy'},{t:'Sí — canales 1 y 2',v:'CANAL 1 Y 2',cls:'navy'}]);q.ibp=r||''}
+  ST.eqs.push(q);ST.editando=q.id;guardar();render();scrollTo(0,0);setTimeout(()=>$('[data-q=certificado]')?.focus(),60)},
  acred:id=>{const q=ST.eqs.find(x=>x.id===ST.editando);if(!q)return;q.acred=id;const m=/^(\d+)/.exec(String(q.certificado||'').trim());if(m)q.certificado=id==='si'?m[1]:cert(q);guardar();const y=scrollY;render();scrollTo(0,y)},
  agregarOtro:()=>{ST.editando='';ACT.agregar()},
  editar:id=>{ST.editando=id;guardar();render();scrollTo(0,0)},
@@ -778,7 +794,7 @@ document.addEventListener('focusout',ev=>{const el=ev.target;if(el.dataset?.kpa)
 // con ↓ en la tabla (1ª ↓ y 2ª ↓ de los manómetros) de abajo hacia arriba. Ventilador: en cada parámetro,
 // Patrón M1→M4 y luego Equipo M1→M4.
 function ordenLec(q){const t=T(q),L=[];
- t.secciones.forEach(sc=>{
+ SECC(t,q).forEach(sc=>{
   if(sc.render==='rows')sc.cols.forEach((c,j)=>{const col=sc.puntos.map(p=>p.lec[j].cell);L.push(...(c.includes('↓')?col.reverse():col))});
   else if(sc.render==='cols')sc.puntos.forEach(p=>L.push(...p.lec.map(l=>l.cell)));
   else sc.puntos.forEach(p=>['pt','eq'].forEach(k=>L.push(...p.lec.filter(l=>l.k===k).sort((a,b)=>a.m-b.m).map(l=>l.cell))))});
