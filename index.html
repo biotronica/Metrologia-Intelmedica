@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v33</title>
+<title>Metrología · Intelmedica v34</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -342,7 +342,8 @@ async function generarEq(q,est){
  await limpiarTemporales();
  est('Copiando la plantilla oficial…');
  const tpl=await plantilla(q);
- const nombre=MAY(`${cert(q)} ${t.tipo.replace(/ \/.*$/,'')} ${q.serie&&!/^ni$/i.test(q.serie)?q.serie:(q.activo||'NI')}`).replace(/[\\/:*?"<>|#%]+/g,'-').trim();
+ // Nombre del archivo: CERTIFICADO TIPO SERIE CLIENTE FECHA-DE-CALIBRACIÓN (p. ej. 50001-26 MONITOR MULTIPARÁMETRO 00777 CLINICA X 2026-11-10.xlsx)
+ const nombre=MAY(`${cert(q)} ${t.tipo.replace(/ \/.*$/,'')} ${q.serie&&!/^ni$/i.test(q.serie)?q.serie:(q.activo||'NI')} ${String(K.nombre||'').trim()} ${G.fecha||''}`).replace(/[\\/:*?"<>|#%]+/g,'-').replace(/\s+/g,' ').trim();
  const tmp=await subir(tpl,{name:nombre+' (temporal)',mimeType:GSHEET},MIME_XLSX);
  try{
   const meta=await api(SH+tmp.id+'?fields=sheets.properties(sheetId,title,hidden)');
@@ -564,7 +565,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v33';
+const VERSION='v34';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
