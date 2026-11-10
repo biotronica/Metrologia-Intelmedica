@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v29</title>
+<title>Metrología · Intelmedica v32</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -157,14 +157,17 @@ function eqNuevo(prev){const t=T(),v={},mismo=prev&&(prev.tpl||ST.tpl)===ST.tpl;
 // sticker ACREDITADO → solo el número, p. ej. 42710.
 const aa=()=>(ST.gen.fecha||hoy()).slice(2,4);
 const cert=q=>{const s=String(q.certificado||'').trim().replace(/\s+/g,'');if(!s)return'';const m=/^(\d+)(?:-(\d{2}))?$/.exec(s);if(!m)return s;return q.acred==='si'?m[1]:m[1]+'-'+(m[2]||aa())};
-const certOk=q=>q.acred==='si'?/^\d+$/.test(cert(q)):q.acred==='no'&&/^\d+-\d{2}$/.test(cert(q));
+// Sticker no acreditado: lo que va después del guion debe ser el año de calibración (AA). Si no, rojo y no se genera.
+const certAnioOk=q=>{if(q.acred!=='no')return true;const m=/^\d+-(\d*)$/.exec(String(q.certificado||'').trim().replace(/\s+/g,''));return!m||m[1]===aa()};
+const certOk=q=>certAnioOk(q)&&(q.acred==='si'?/^\d+$/.test(cert(q)):q.acred==='no'&&/^\d+-\d{2}$/.test(cert(q)));
 // N.º de dígitos del certificado: se compara con los demás certificados de la toma con el MISMO tipo de sticker
 // (acreditado / no acreditado). Si tiene más o menos dígitos que la mayoría, se marca en rojo (aviso, no bloquea).
 const digCert=q=>((/^(\d+)/.exec(String(q.certificado||'').trim())||[])[1]||'').length;
 function digEsperados(q){const c={};ST.eqs.forEach(x=>{if(x!==q&&x.acred&&x.acred===q.acred){const n=digCert(x);if(n)c[n]=(c[n]||0)+1}});
  const m=Math.max(0,...Object.values(c));return m?Object.keys(c).filter(k=>c[k]===m).map(Number):[]}
 const certDigOk=q=>{const n=digCert(q),e=digEsperados(q);return!n||!q.acred||!e.length||e.includes(n)};
-const certCls=q=>certDigOk(q)?'cert':'cert certbad';
+const certMal=q=>!certDigOk(q)||!certAnioOk(q);
+const certCls=q=>certMal(q)?'cert certbad':'cert';
 const certRep=q=>!!cert(q)&&ST.eqs.some(x=>x!==q&&cert(x)===cert(q));
 const val=(q,c)=>num(q.v?.[c]);
 // Puntos obligatorios: con valor programado numérico. En ventiladores, los parámetros NA/NI son
@@ -201,7 +204,7 @@ const vacios=q=>{const t=T(q),L=[];
  PUNTOS(t).filter(p=>obligatorio(t,q,p)).forEach(p=>p.lec.forEach(l=>{if(val(q,l.cell)===null)L.push(l.cell)}));
  return L};
 const vaciosOk=q=>{const v=vacios(q);return!v.length||q.vaciosOk===v.join(';')};
-const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q).filter(x=>!vaciosOk(q)||!/capacidad|resoluci/.test(x)),!vaciosOk(q)&&faltaProg(q)&&'valores nominales',!vaciosOk(q)&&(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
+const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(!certAnioOk(q)?`año del certificado (después del guion debe ir -${aa()})`:q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q).filter(x=>!vaciosOk(q)||!/capacidad|resoluci/.test(x)),!vaciosOk(q)&&faltaProg(q)&&'valores nominales',!vaciosOk(q)&&(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
 // Lo que falta SIN contar los campos vacíos de la toma de datos (para saber si solo faltan esos).
 const faltanFijos=q=>{const o=q.vaciosOk;q.vaciosOk=vacios(q).join(';');const f=faltan(q);q.vaciosOk=o;return f};
 const completo=q=>!faltan(q).length;
@@ -303,17 +306,30 @@ async function plantilla(q){
 }
 
 /* =================== generar =================== */
+// La copia temporal de Google Sheets se crea en «Mi unidad» (no en la carpeta del cliente) y se borra al terminar.
+// Si una generación se interrumpe (se cerró la app, se bloqueó el celular, se venció la sesión), la temporal
+// queda; limpiarTemporales() borra las que lleven más de 10 min, también las que quedaron en METROLOGIA.
+async function borrarTemp(id){try{await api(`${DRV}/${encodeURIComponent(id)}?supportsAllDrives=true`,{method:'DELETE'})}catch(e){
+ try{await api(`${DRV}/${encodeURIComponent(id)}?supportsAllDrives=true`,{method:'PATCH',body:JSON.stringify({trashed:true}),headers:{'Content-Type':'application/json'}})}catch(e2){}}}
+let ultLimpieza=0;
+async function limpiarTemporales(){if(Date.now()-ultLimpieza<10*60e3)return;ultLimpieza=Date.now();
+ try{const lim=new Date(Date.now()-10*60e3).toISOString(),L=await driveList(`name contains '(temporal)' and mimeType='${GSHEET}' and trashed=false and modifiedTime < '${lim}'`);
+  for(const f of L)if(/\(temporal\)$/.test(f.name))await borrarTemp(f.id)}catch(e){if(e instanceof AuthError)throw e;console.warn('limpieza',e)}}
 async function generar(q,est){
+ let wl=null;try{wl=await navigator.wakeLock?.request('screen')}catch(e){}   // que el celular no se bloquee mientras genera
+ try{return await generarEq(q,est)}finally{try{wl&&wl.release()}catch(e){}}}
+async function generarEq(q,est){
  const t=T(q),a=A(q),C=a.celdas,K=ST.cli,G=ST.gen;
  if(!completo(q))throw new Error('Faltan datos en el equipo');
  if(!confirmado(q))throw new Error('Hay lecturas fuera de ±10 % sin corregir ni confirmar');
  est('Buscando la carpeta del cliente…');
  // Destino: Documentos compartidos › METROLOGIA › FECHA CLIENTE › tipo de equipo (las carpetas se crean si no existen).
  const cMet=await subcarpeta(AJ.comp||CONFIG.COMPARTIDOS,CONFIG.CARPETA_METRO),cAnio=await subcarpeta(await subcarpeta(cMet,carpetaToma()),subCarpeta(q));
+ await limpiarTemporales();
  est('Copiando la plantilla oficial…');
  const tpl=await plantilla(q);
  const nombre=MAY(`${cert(q)} ${t.tipo.replace(/ \/.*$/,'')} ${q.serie&&!/^ni$/i.test(q.serie)?q.serie:(q.activo||'NI')}`).replace(/[\\/:*?"<>|#%]+/g,'-').trim();
- const tmp=await subir(tpl,{name:nombre+' (temporal)',parents:[cAnio],mimeType:GSHEET},MIME_XLSX);
+ const tmp=await subir(tpl,{name:nombre+' (temporal)',mimeType:GSHEET},MIME_XLSX);
  try{
   const meta=await api(SH+tmp.id+'?fields=sheets.properties(sheetId,title,hidden)');
   const hoja=(meta.sheets.find(s=>s.properties.title.trim()===a.hoja)||meta.sheets[0]).properties.title;
@@ -330,7 +346,12 @@ async function generar(q,est){
   est('Escribiendo los datos…');
   await api(SH+tmp.id+'/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data:d})});
   // Manómetros: se deja visible la hoja del certificado que corresponde al tipo elegido.
-  if(t.certHoja){const h=meta.sheets.find(s=>s.properties.title.trim()===t.certHoja);if(h&&h.properties.hidden)await api(SH+tmp.id+':batchUpdate',{method:'POST',body:JSON.stringify({requests:[{updateSheetProperties:{properties:{sheetId:h.properties.sheetId,hidden:false},fields:'hidden'}}]})})}
+  const reqs=[];
+  if(t.certHoja){const h=meta.sheets.find(s=>s.properties.title.trim()===t.certHoja);if(h&&h.properties.hidden)reqs.push({updateSheetProperties:{properties:{sheetId:h.properties.sheetId,hidden:false},fields:'hidden'}})}
+  // Manovacuómetro: Valor IBC (B70:B76) con 2 decimales y lecturas del patrón (C70:F75) con 3 decimales.
+  if(t===TIPOS.mvac){const sid=meta.sheets.find(s=>s.properties.title===hoja).properties.sheetId,fmt=(r0,r1,c0,c1,pat)=>({repeatCell:{range:{sheetId:sid,startRowIndex:r0-1,endRowIndex:r1,startColumnIndex:c0,endColumnIndex:c1},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:pat}}},fields:'userEnteredFormat.numberFormat'}});
+   reqs.push(fmt(70,76,1,2,'0.00'),fmt(70,75,2,6,'0.000'))}
+  if(reqs.length)await api(SH+tmp.id+':batchUpdate',{method:'POST',body:JSON.stringify({requests:reqs})});
   est('Guardando el Excel…');
   const r=await fetch(`${DRV}/${encodeURIComponent(tmp.id)}/export?mimeType=${encodeURIComponent(MIME_XLSX)}`,{headers:{Authorization:'Bearer '+token}});
   if(!r.ok)throw new Error('No se pudo exportar a Excel (HTTP '+r.status+')');
@@ -340,7 +361,7 @@ async function generar(q,est){
   const fx=await subir(blob,{name:nombre+'.xlsx',parents:[cAnio]},MIME_XLSX,ex[0]?.id);
   q.hecho=`https://drive.google.com/file/d/${fx.id}/view`;q.err='';q.cel='';q.archivo=nombre+'.xlsx';guardar();
   idbPut(q.id,{name:nombre+'.xlsx',blob}).catch(()=>{});
- }finally{api(`${DRV}/${encodeURIComponent(tmp.id)}?supportsAllDrives=true`,{method:'DELETE'}).catch(()=>{})}
+ }finally{await borrarTemp(tmp.id)}
 }
 
 
@@ -529,7 +550,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v29';
+const VERSION='v32';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
@@ -563,7 +584,7 @@ function vEquipos(){
  <button class="btn block" data-a="agregar">+ Agregar ${esc(t.tipo.toLowerCase())}</button></div></div>
  <div class="bottom"><div class="in"><button class="btn ghost" data-a="atrasCliente">‹ Cliente</button><button class="btn navy" data-a="paso" data-id="generar" ${ST.eqs.length?'':'disabled'}>Generar →</button></div></div>`;
 }
-const certPrev=q=>!String(q.certificado).trim()?'':certRep(q)?`<span style="color:var(--danger);font-weight:700">⚠ El certificado ${esc(cert(q))} ya está en otro equipo</span>`:!q.acred?'<span class="muted">Elija primero si el sticker es acreditado o no acreditado.</span>':certOk(q)?`Quedará: <span class="${certCls(q)}">${esc(cert(q))}</span>${certDigOk(q)?'':`<br><span style="color:var(--danger);font-weight:700">⚠ Tiene ${digCert(q)} dígitos y los demás certificados ${q.acred==='si'?'acreditados':'no acreditados'} de esta toma tienen ${digEsperados(q).join(' o ')}. Revise el número.</span>`}`:`<span style="color:var(--danger);font-weight:700">${q.acred==='si'?'Acreditado: escriba solo el número, p. ej. 42710':'Use el formato número-AA, p. ej. 42710-26'}</span>`;
+const certPrev=q=>!String(q.certificado).trim()?'':certRep(q)?`<span style="color:var(--danger);font-weight:700">⚠ El certificado ${esc(cert(q))} ya está en otro equipo</span>`:!q.acred?'<span class="muted">Elija primero si el sticker es acreditado o no acreditado.</span>':certOk(q)?`Quedará: <span class="${certCls(q)}">${esc(cert(q))}</span>${certDigOk(q)?'':`<br><span style="color:var(--danger);font-weight:700">⚠ Tiene ${digCert(q)} dígitos y los demás certificados ${q.acred==='si'?'acreditados':'no acreditados'} de esta toma tienen ${digEsperados(q).join(' o ')}. Revise el número.</span>`}`:`<span style="color:var(--danger);font-weight:700">${!certAnioOk(q)?`⚠ Después del guion debe ir el año de calibración: <b>-${aa()}</b> (fecha de calibración ${esc(ST.gen.fecha||'')}). Corríjalo para poder generar el certificado.`:q.acred==='si'?'Acreditado: escriba solo el número, p. ej. 42710':'Use el formato número-AA, p. ej. 42710-26'}</span>`;
 const avisoLec=q=>{const n=nFuera(q);if(!n)return'';const c=cuentaFuera(q);return`<div class="aviso">⚠ ${n} lectura(s) fuera de ±10 % ${T(q).check==='prog'?'del valor nominal':'de las demás lecturas del mismo parámetro'}:
  ${c.dig?`<br><span class="ley dig"></span><b>${c.dig} en rojo: posible error de digitación.</b> No coinciden con las demás lecturas del mismo punto, o la coma o el signo parecen equivocados. Revise y corrija.`:''}
  ${c.real?`<br><span class="ley real"></span><b style="color:#a35400">${c.real} en naranja: fuera de tolerancia real.</b> <span style="color:#a35400">Coinciden con las demás lecturas del punto, pero todas se alejan más del 10 % del valor nominal: el equipo está descalibrado.</span>`:''}
@@ -592,7 +613,7 @@ function vEditor(){
  return topbar(`${esc(t.tipo)} ${i+1}`,esc(ST.cli.nombre),'cerrarEditor')+`<div class="content">
  <div class="card"><div class="card-title">Certificado e identificación</div>
  <div class="small" style="font-weight:600;margin-bottom:6px">Sticker *</div><div class="tipos" style="margin-bottom:12px">${[['si','Acreditado','Solo el número · 42710'],['no','No acreditado','Número-AA · 42710-'+aa()]].map(([k,t,d])=>`<button type="button" class="tipo ${q.acred===k?'on':''}" data-a="acred" data-id="${k}"><b>${t}</b><span class="small muted">${d}</span></button>`).join('')}</div>
- ${qi('certificado','N.º de certificado *'+(q.acred==='no'?' (el -AA del año se agrega solo)':''),`inputmode="numeric" placeholder="Ej. 42710" class="${certDigOk(q)?'':'certbad'}"`)}<div class="small" id="certPrev" style="margin:-6px 0 12px">${certPrev(q)}</div>
+ ${qi('certificado','N.º de certificado *'+(q.acred==='no'?' (el -AA del año se agrega solo)':''),`inputmode="numeric" placeholder="Ej. 42710" class="${certMal(q)?'certbad':''}"`)}<div class="small" id="certPrev" style="margin:-6px 0 12px">${certPrev(q)}</div>
  <div class="g2">${qi('equipo','Equipo')}${qi('marca','Fabricante / marca')}${qi('modelo','Modelo')}${qi('serie','Serie * (NI si no tiene)')}${qi('activo','N.º interno / activo','placeholder="NI"')}${qi('ubicacion','Ubicación')}</div></div>
  <div class="card"><div class="card-title">Condiciones ambientales</div>
  <div class="g2">${qi('tIni','Temp. inicial (°C)','inputmode="decimal"')}${qi('tFin','Temp. final (°C)','inputmode="decimal"')}${qi('hIni','HR inicial (%)','inputmode="decimal"')}${qi('hFin','HR final (%)','inputmode="decimal"')}</div></div>
@@ -738,7 +759,7 @@ document.addEventListener('input',ev=>{
  const q=ST.eqs.find(x=>x.id===ST.editando);if(!q)return;
  if(d.q&&el.tagName!=='SELECT')q[d.q]=el.value;else if(d.cell&&d.kpa){q.v=q.v||{};q.vk=q.vk||{};q.mpa=true;q.vk[d.cell]=el.value;const n=num(el.value);q.v[d.cell]=n===null?el.value:String(aMPa(n))}else if(d.cell){q.v=q.v||{};q.v[d.cell]=el.value}else return;
  q.hecho='';q.err='';
- if(d.q==='certificado'){const p=$('#certPrev');if(p)p.innerHTML=certPrev(q);el.classList.toggle('certbad',!certDigOk(q))}
+ if(d.q==='certificado'){const p=$('#certPrev');if(p)p.innerHTML=certPrev(q);el.classList.toggle('certbad',certMal(q))}
  if(d.cell)refrescarLec(q,d.p);
  if(d.cell&&!d.prog)programarAvance(el);
  guardar();
