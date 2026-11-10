@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v34</title>
+<title>Metrología · Intelmedica v35</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -565,7 +565,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v34';
+const VERSION='v35';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
@@ -812,6 +812,10 @@ document.addEventListener('keydown',ev=>{if(ev.key!=='Enter'||ev.target.tagName!
  if(el.dataset.cell&&!el.dataset.prog){ev.preventDefault();clearTimeout(tAvance);irSiguiente(el);return}
  const L=[...document.querySelectorAll('.content input')];const i=L.indexOf(el);if(i>=0&&L[i+1]){ev.preventDefault();L[i+1].focus()}});
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+// Al abrir la app: si en la toma anterior TODOS los certificados quedaron generados, esa toma se guarda en el
+// 📋 Historial y la app empieza en el inicio (paso 1, nueva toma). Si quedó algo pendiente, se abre donde iba.
+if(ST.eqs.length&&ST.eqs.every(q=>q.hecho)&&archivar()){const g={...ST.gen};ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;guardar();
+ setTimeout(()=>toast('La toma de datos anterior quedó guardada en el 📋 Historial'),400)}
 render();
 if(conectado())run(async()=>{await cargarClientes();if(ST.paso==='cliente'&&!ST.editando&&VISTA!=='ajustes'){const a=document.activeElement;if(!a||a===document.body)render()}});
 </script>
