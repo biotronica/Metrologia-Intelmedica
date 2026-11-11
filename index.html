@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v35</title>
+<title>Metrología · Intelmedica v36</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -565,7 +565,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v35';
+const VERSION='v36';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
@@ -778,7 +778,7 @@ document.addEventListener('input',ev=>{
  q.hecho='';q.err='';
  if(d.q==='certificado'){const p=$('#certPrev');if(p)p.innerHTML=certPrev(q);el.classList.toggle('certbad',certMal(q))}
  if(d.cell)refrescarLec(q,d.p);
- if(d.cell&&!d.prog)programarAvance(el);
+ // (v36) Sin paso automático: el usuario cambia de casilla tocándola o con Enter.
  guardar();
 });
 document.addEventListener('change',ev=>{
