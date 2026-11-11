@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v37</title>
+<title>Metrología · Intelmedica v38</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -131,7 +131,10 @@ const hoy=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()
 const num=v=>{const s=String(v??'').trim().replace(',','.');return s!==''&&isFinite(Number(s))?Number(s):null};
 const fmtN=x=>x==null?'—':(Math.round(x*1000)/1000).toLocaleString('es-CO');
 const loadLS=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
-const saveLS=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+// Los datos (toma en curso, Historial, ajustes) se guardan en localStorage y además una copia en IndexedDB.
+// Al actualizar la app (nueva versión) se conservan; si el navegador borrara localStorage, se recuperan de la copia.
+const respaldo=(k,txt)=>setTimeout(()=>{try{idbPut('__ls__'+k,txt).catch(()=>{})}catch(e){}},0);
+const saveLS=(k,v)=>{const txt=JSON.stringify(v);try{localStorage.setItem(k,txt)}catch(e){}respaldo(k,txt)};
 let tt;function toast(m,cls=''){const t=$('#toast');t.textContent=m;t.className='on '+cls;clearTimeout(tt);tt=setTimeout(()=>t.className='',3800)}
 
 /* =================== estado =================== */
@@ -565,7 +568,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v37';
+const VERSION='v38';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
@@ -817,6 +820,11 @@ if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serv
 if(ST.eqs.length&&ST.eqs.every(q=>q.hecho)&&archivar()){const g={...ST.gen};ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;guardar();
  setTimeout(()=>toast('La toma de datos anterior quedó guardada en el 📋 Historial'),400)}
 render();
+// Pedir almacenamiento persistente y, si localStorage quedó vacío, recuperar los datos de la copia en IndexedDB.
+try{navigator.storage?.persist?.()}catch(e){}
+(async()=>{try{const K3=[KEY,KEY+'_hist',KEY+'_aj'];
+ if(K3.every(k=>!localStorage.getItem(k))){let n=0;for(const k of K3){const t=await idbGet('__ls__'+k);if(t){localStorage.setItem(k,t);n++}}if(n)location.reload()}
+ else K3.forEach(k=>{const t=localStorage.getItem(k);if(t)respaldo(k,t)})}catch(e){}})();
 if(conectado())run(async()=>{await cargarClientes();if(ST.paso==='cliente'&&!ST.editando&&VISTA!=='ajustes'){const a=document.activeElement;if(!a||a===document.body)render()}});
 </script>
 </body>
