@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v36</title>
+<title>Metrología · Intelmedica v37</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -565,7 +565,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v36';
+const VERSION='v37';
 function topbar(titulo,sub,atras){
  const i=PASOS.indexOf(ST.paso);
  return`<div class="topbar"><div class="topbar-row">${atras?`<button class="tb-btn" data-a="${atras}">‹</button>`:''}<div class="topbar-title">${titulo} <span class="ver">${VERSION}</span><div class="topbar-sub">${sub}</div></div>
@@ -648,7 +648,7 @@ function vGenerar(){
  <div class="small">${[...new Set(ST.eqs.map(subCarpeta))].map(x=>`📁 Documentos compartidos › <b>${CONFIG.CARPETA_METRO}</b> › <b>${esc(carpetaToma())}</b> › <b>${esc(x)}</b>`).join('<br>')||'📁 Documentos compartidos › <b>'+CONFIG.CARPETA_METRO+'</b> › <b>'+esc(carpetaToma())+'</b> › (tipo de equipo)'}</div>
  <div class="muted small" style="margin-top:4px">Si las carpetas no existen, la app las crea.</div></div>
  <div class="card"><div class="card-title">Equipos</div>
- ${ST.eqs.map(q=>`<div class="eq" style="cursor:default"><div class="main"><div class="t">${q.certificado?`<span class="${certCls(q)}">${esc(cert(q))}</span>`:''}${esc(q.equipo)} · S/N ${esc(q.serie||'—')}</div><div class="s">${q.err?`<span style="color:var(--danger)">${esc(q.err)}</span>`:q.hecho?`<a href="${esc(q.hecho)}" target="_blank" rel="noopener">📄 Abrir Excel en Drive</a>`:!confirmado(q)?`<span style="color:var(--danger)">${nFuera(q)} lectura(s) fuera de ±10 % (${esc(txtFuera(q))}): corrija o confirme en el equipo</span>`:completo(q)?(nFuera(q)?'Listo · lecturas fuera de tolerancia confirmadas':'Listo para generar'):soloVac(q)?`<span style="color:#8a6d00">${vacios(q).length} campo(s) vacío(s): ¿llenarlos o no tenerlos en cuenta?</span>`:'Falta: '+esc(faltan(q).join(', '))}</div></div>${chip(q)}${soloVac(q)?`<button class="btn sm" data-a="vacios1" data-id="${q.id}">Campos vacíos</button>`:generable(q)?`<button class="btn sm ${q.hecho?'ghost':''}" data-a="gen1" data-id="${q.id}">${q.hecho?'🔄 Regenerar':'Generar'}</button>`:`<button class="btn sm ghost" data-a="editar" data-id="${q.id}">${completo(q)?'Revisar':'Completar'}</button>`}</div>`).join('')}
+ ${ST.eqs.map(q=>`<div class="eq" style="cursor:default"><div class="main"><div class="t">${q.certificado?`<span class="${certCls(q)}">${esc(cert(q))}</span>`:''}${esc(q.equipo)}${q.marca?' · '+esc(q.marca):''} · S/N ${esc(q.serie||'—')}${q.activo&&!/^ni$/i.test(q.activo)?' · CÓD. '+esc(q.activo):''}</div><div class="s">${q.err?`<span style="color:var(--danger)">${esc(q.err)}</span>`:q.hecho?`<a href="${esc(q.hecho)}" target="_blank" rel="noopener">📄 Abrir Excel en Drive</a>`:!confirmado(q)?`<span style="color:var(--danger)">${nFuera(q)} lectura(s) fuera de ±10 % (${esc(txtFuera(q))}): corrija o confirme en el equipo</span>`:completo(q)?(nFuera(q)?'Listo · lecturas fuera de tolerancia confirmadas':'Listo para generar'):soloVac(q)?`<span style="color:#8a6d00">${vacios(q).length} campo(s) vacío(s): ¿llenarlos o no tenerlos en cuenta?</span>`:'Falta: '+esc(faltan(q).join(', '))}</div></div>${chip(q)}${soloVac(q)?`<button class="btn sm" data-a="vacios1" data-id="${q.id}">Campos vacíos</button>`:generable(q)?`<button class="btn sm ${q.hecho?'ghost':''}" data-a="gen1" data-id="${q.id}">${q.hecho?'🔄 Regenerar':'Generar'}</button>`:`<button class="btn sm ghost" data-a="editar" data-id="${q.id}">${completo(q)?'Revisar':'Completar'}</button>`}</div>`).join('')}
  ${(n=>n&&listos?`<button class="btn ghost block" data-a="regenTodos" style="margin-top:6px">🔄 Regenerar todos (${n})</button><p class="muted small" style="margin:6px 0 0">Vuelve a generar los Excel ya generados con los datos actuales; en Drive se reemplazan.</p>`:'')(ST.eqs.filter(q=>q.hecho&&generable(q)).length)}
  <div class="status" id="estado"></div></div>
  ${inc?`<p class="muted small">${inc} equipo(s) incompleto(s) no se generan.</p>`:''}
