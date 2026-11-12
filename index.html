@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v39</title>
+<title>Metrología · Intelmedica v40</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -147,11 +147,11 @@ const guardar=()=>saveLS(KEY,ST);
 // para poder abrirla después, corregirla y volver a generar los certificados.
 const HKEY=KEY+'_hist';
 let HIST=loadLS(HKEY)||[],HQ='';
-function guardarHist(){for(;;){try{localStorage.setItem(HKEY,JSON.stringify(HIST));return true}catch(e){if(HIST.length<=1)return false;HIST.pop()}}}
+function guardarHist(){for(;;){try{const t=JSON.stringify(HIST);localStorage.setItem(HKEY,t);respaldo(HKEY,t);return true}catch(e){if(HIST.length<=1)return false;HIST.pop()}}}
 function archivar(){
  if(!ST.eqs.length)return false;
  const copia=JSON.parse(JSON.stringify(ST));copia.editando='';copia.marcarVacios='';copia.paso='generar';delete copia.candidatos;
- const id=ST.histId||uid();copia.histId=id;
+ const id=ST.histId||uid();copia.histId=id;archivar.ultimo=id;
  const prev=HIST.find(h=>h.id===id),igual=prev&&JSON.stringify(prev.st)===JSON.stringify(copia);
  HIST=[{id,ts:igual?prev.ts:Date.now(),st:copia},...HIST.filter(h=>h.id!==id)].sort((a,b)=>b.ts-a.ts).slice(0,300);
  return guardarHist();
@@ -568,7 +568,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v39';
+const VERSION='v40';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -585,6 +585,7 @@ function vCliente(){
  const K=ST.cli,G=ST.gen;
  return topbar('Metrología Intelmedica','Paso 1 de 3 · Cliente y calibración')+`<div class="content">
  ${conectado()?'':`<div class="card hero"><img src="icon-192.png" alt=""><h2 style="margin:12px 0 6px">Toma de datos de calibración</h2><p class="muted small">Conéctese con la cuenta de Google de INTELMEDICA para usar la plantilla oficial y guardar en Drive. Puede llenar los datos sin conexión y generar después.</p><button class="btn navy" data-a="conectar">Conectar con Google</button></div>`}
+ ${ST.volver&&HIST.some(h=>h.id===ST.volver.id)&&!ST.cli.nombre.trim()&&!ST.eqs.length?`<div class="card" style="border-left:4px solid var(--teal)"><div class="card-title">Toma de datos anterior</div><p class="small" style="margin-top:0">La toma de <b>${esc(ST.volver.cli||'el cliente anterior')}</b> ya tenía todos los certificados generados y quedó en el 📋 Historial.</p><button class="btn navy block" data-a="volverToma">↩ Volver a ${esc(ST.volver.cli||'la toma anterior')}</button></div>`:''}
  <div class="card"><div class="card-title">¿Qué equipo va a calibrar?</div><div class="tipos">${Object.entries(TIPOS).map(([k,t])=>`<button class="tipo ${ST.tpl===k?'on':''}" data-a="tipo" data-id="${k}"><b>${esc(t.tipo)}</b><span>${esc(ARCHIVOS[t.archivo].nombre.replace(/ PLANTILLA.*$/,''))}</span></button>`).join('')}</div>
  ${ST.tpl?`<p class="muted small" style="margin:8px 0 0">Plantilla: ${esc(A().nombre.replace(/\.xlsx$/,''))}</p>`:''}</div>
  <div class="card"><div class="card-title">Datos del cliente</div>
@@ -736,6 +737,7 @@ const ACT={
  instalar:()=>{if(INSTP){const e=INSTP;e.prompt();e.userChoice.then(r=>{if(r&&r.outcome==='accepted'){INSTP=null;toast('Instalando Metrología ✔')}render()}).catch(()=>{});return}
   if(VISTA!=='instalar')VISTA_PREV=VISTA;VISTA='instalar';render();scrollTo(0,0)},
  verInstalar:()=>ACT.instalar(),
+ volverToma:()=>{const h=HIST.find(x=>x.id===ST.volver?.id);if(!h)return;ST=Object.assign(estadoNuevo(),JSON.parse(JSON.stringify(h.st)));ST.histId=h.id;delete ST.volver;VISTA='';guardar();render();scrollTo(0,0);toast('Toma de datos recuperada ✔')},
  cerrarInst:()=>{VISTA=VISTA_PREV==='instalar'?'':VISTA_PREV;render();scrollTo(0,0)},
  cerrarHist:()=>{VISTA='';render();scrollTo(0,0)},
  histAbrir:id=>{const h=HIST.find(x=>x.id===id);if(!h)return;
@@ -853,7 +855,10 @@ if(!ESAPP){window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();
  window.addEventListener('appinstalled',()=>{INSTP=null;toast('Metrología instalada ✔');const a=document.activeElement;if(!a||!/INPUT|SELECT|TEXTAREA/.test(a.tagName))render()})}
 // Al abrir la app: si en la toma anterior TODOS los certificados quedaron generados, esa toma se guarda en el
 // 📋 Historial y la app empieza en el inicio (paso 1, nueva toma). Si quedó algo pendiente, se abre donde iba.
-if(ST.eqs.length&&ST.eqs.every(q=>q.hecho)&&archivar()){const g={...ST.gen};ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;guardar();
+// v40: SOLO si la fecha de calibración es de un día ANTERIOR. Si es de hoy (cliente en curso), la toma se conserva
+// tal cual aunque se cierre la app o se actualice de versión. Tampoco si la toma se abrió del Historial (histId).
+// Y en el inicio queda el botón «↩ Volver a …».
+if(ST.eqs.length&&!ST.histId&&ST.eqs.every(q=>q.hecho)&&(ST.gen.fecha||'')<hoy()&&archivar()){const g={...ST.gen},id=archivar.ultimo,cli=ST.cli.nombre;ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;ST.volver={id,cli};guardar();
  setTimeout(()=>toast('La toma de datos anterior quedó guardada en el 📋 Historial'),400)}
 render();
 // Pedir almacenamiento persistente y, si localStorage quedó vacío, recuperar los datos de la copia en IndexedDB.
