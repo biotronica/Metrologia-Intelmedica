@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v43</title>
+<title>Metrología · Intelmedica v44</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -147,6 +147,11 @@ const KEY='metrologia_intelmedica_v1';
 function estadoNuevo(){return{paso:'cliente',tpl:'',cli:{nombre:'',contacto:'',direccion:'',telefono:''},gen:{recepcion:hoy(),fecha:hoy(),lugar:'En Sitio',metrologo:METROLOGOS[0]},eqs:[],editando:'',carpeta:null}}
 let ST=Object.assign(estadoNuevo(),loadLS(KEY)||{});
 let AJ=Object.assign({mant:CONFIG.MANTENIMIENTOS,comp:CONFIG.COMPARTIDOS,tplIds:{}},loadLS(KEY+'_aj')||{});
+// Última vez que se usó la app (para distinguir «abrir la app» de una recarga del iPhone al volver a ella).
+const UKEY=KEY+'_uso';let usoMarcado=0;
+function marcaUso(){const t=Date.now();if(t-usoMarcado<20e3)return;usoMarcado=t;try{localStorage.setItem(UKEY,String(t))}catch(e){}}
+const usoReciente=()=>{try{return Date.now()-(+localStorage.getItem(UKEY)||0)<10*60e3}catch(e){return false}};
+document.addEventListener('visibilitychange',()=>{if(document.hidden){usoMarcado=0;marcaUso()}});
 /* =================== Seguridad (v42): PIN, bloqueo por inactividad y cuentas autorizadas =================== */
 // El PIN se guarda como huella PBKDF2 (no el PIN). Protege la pantalla de la app en este dispositivo.
 const PKEY=KEY+'_pin',OKKEY=KEY+'_ok';
@@ -159,7 +164,7 @@ async function pinHash(pin,salt){const k=await crypto.subtle.importKey('raw',new
  return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:new TextEncoder().encode(salt),iterations:150000},k,256))}
 async function pinGuardar(pin){const salt=hex(crypto.getRandomValues(new Uint8Array(16)));PIN={salt,h:await pinHash(pin,salt)};saveLS(PKEY,PIN)}
 const pinOk=async pin=>!!PIN&&(await pinHash(pin,PIN.salt))===PIN.h;
-function marcaAct(){ultAct=Date.now();try{sessionStorage.setItem(OKKEY,String(ultAct))}catch(e){}}
+function marcaAct(){ultAct=Date.now();try{sessionStorage.setItem(OKKEY,String(ultAct))}catch(e){}marcaUso()}
 function desbloquear(){BLOQ=false;pinFallos=0;marcaAct();const l=document.getElementById('lock');l.className='';l.innerHTML='';document.getElementById('app').inert=false}
 // modo: 'pedir' (abrir la app), 'crear' (primer uso o PIN olvidado), 'actual' (cambiar: pide el actual y luego el nuevo)
 function bloquear(modo,msg){BLOQ=true;try{sessionStorage.removeItem(OKKEY)}catch(e){}
@@ -194,9 +199,9 @@ const guardar=()=>saveLS(KEY,ST);
 const HKEY=KEY+'_hist';
 let HIST=loadLS(HKEY)||[],HQ='';
 function guardarHist(){for(;;){try{const t=JSON.stringify(HIST);localStorage.setItem(HKEY,t);respaldo(HKEY,t);return true}catch(e){if(HIST.length<=1)return false;HIST.pop()}}}
-function archivar(){
- if(!ST.eqs.length)return false;
- const copia=JSON.parse(JSON.stringify(ST));copia.editando='';copia.marcarVacios='';copia.paso='generar';delete copia.candidatos;
+function archivar(conCliente){
+ if(!ST.eqs.length&&!(conCliente&&ST.cli.nombre.trim()))return false;
+ const copia=JSON.parse(JSON.stringify(ST));copia.editando='';copia.marcarVacios='';copia.paso=ST.eqs.length?'generar':'equipos';delete copia.candidatos;
  const id=ST.histId||uid();copia.histId=id;archivar.ultimo=id;
  const prev=HIST.find(h=>h.id===id),igual=prev&&JSON.stringify(prev.st)===JSON.stringify(copia);
  HIST=[{id,ts:igual?prev.ts:Date.now(),st:copia},...HIST.filter(h=>h.id!==id)].sort((a,b)=>b.ts-a.ts).slice(0,300);
@@ -673,7 +678,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v43';
+const VERSION='v44';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -819,7 +824,7 @@ function histLista(){
  if(!L.length)return'<div class="empty">No se encontró nada con esa búsqueda.</div>';
  return L.map(h=>{const S=h.st,E=S.eqs||[],g=E.filter(q=>q.hecho).length,tipos=[...new Set(E.map(q=>T(q).tipo))].join(', '),actual=h.id===ST.histId;
   return`<div class="eq" style="cursor:default;align-items:flex-start"><div class="main"><div class="t">${esc(MAY(S.cli?.nombre)||'SIN CLIENTE')}${actual?' <span class="chip warn">Abierta</span>':''}</div>
-  <div class="s">Calibración ${fFecha(S.gen?.fecha)} · ${E.length} equipo(s) · ${g===E.length?'todos generados':`${g} de ${E.length} generado(s)`}<br>${esc(tipos)}</div>
+  <div class="s">Calibración ${fFecha(S.gen?.fecha)} · ${E.length} equipo(s)${E.length?' · '+(g===E.length?'todos generados':`${g} de ${E.length} generado(s)`):''}<br>${esc(tipos)}</div>
   <div class="s" style="margin-top:4px">${E.map(q=>q.certificado?`<span class="${certCls(q)}">${esc(cert(q))}</span>`:'').join(' ')}</div></div>
   <div style="display:flex;flex-direction:column;gap:6px"><button class="btn sm" data-a="histAbrir" data-id="${h.id}">Abrir</button><button class="btn sm ghost" data-a="histBorrar" data-id="${h.id}" title="Borrar del historial">🗑</button></div></div>`}).join('')}
 function vDrive(){
@@ -873,7 +878,7 @@ const ACT={
   const e=t=>{const x=$('#estado');if(x)x.textContent=t};let r;OCUP++;try{r=await recuperarDeDrive(f,e)}finally{OCUP--;marcaAct()}
   ST=r.st;ST.histId=uid();archivar();VISTA='';guardar();render();scrollTo(0,0);
   toast(`Toma recuperada: ${ST.eqs.length} equipo(s) de ${ST.cli.nombre}`+(r.fallos?` · ${r.fallos} archivo(s) no se pudieron leer`:''))}),
- volverToma:()=>{const h=HIST.find(x=>x.id===ST.volver?.id);if(!h)return;ST=Object.assign(estadoNuevo(),JSON.parse(JSON.stringify(h.st)));ST.histId=h.id;delete ST.volver;VISTA='';guardar();render();scrollTo(0,0);toast('Toma de datos recuperada ✔')},
+ volverToma:()=>{const h=HIST.find(x=>x.id===ST.volver?.id);if(!h)return;ST=Object.assign(estadoNuevo(),JSON.parse(JSON.stringify(h.st)));ST.histId=h.id;if(ST.eqs.some(q=>!q.hecho))ST.paso='equipos';delete ST.volver;VISTA='';guardar();render();scrollTo(0,0);toast('Toma de datos recuperada ✔')},
  cerrarInst:()=>{VISTA=VISTA_PREV==='instalar'?'':VISTA_PREV;render();scrollTo(0,0)},
  cerrarHist:()=>{VISTA='';render();scrollTo(0,0)},
  histAbrir:id=>{const h=HIST.find(x=>x.id===id);if(!h)return;
@@ -991,12 +996,10 @@ document.addEventListener('keydown',ev=>{if(ev.key!=='Enter'||ev.target.tagName!
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 if(!ESAPP){window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();INSTP=e;const a=document.activeElement;if(!a||!/INPUT|SELECT|TEXTAREA/.test(a.tagName))render()});
  window.addEventListener('appinstalled',()=>{INSTP=null;toast('Metrología instalada ✔');const a=document.activeElement;if(!a||!/INPUT|SELECT|TEXTAREA/.test(a.tagName))render()})}
-// Al abrir la app: si en la toma anterior TODOS los certificados quedaron generados, esa toma se guarda en el
-// 📋 Historial y la app empieza en el inicio (paso 1, nueva toma). Si quedó algo pendiente, se abre donde iba.
-// v40: SOLO si la fecha de calibración es de un día ANTERIOR. Si es de hoy (cliente en curso), la toma se conserva
-// tal cual aunque se cierre la app o se actualice de versión. Tampoco si la toma se abrió del Historial (histId).
-// Y en el inicio queda el botón «↩ Volver a …».
-if(ST.eqs.length&&!ST.histId&&ST.eqs.every(q=>q.hecho)&&(ST.gen.fecha||'')<hoy()&&archivar()){const g={...ST.gen},id=archivar.ultimo,cli=ST.cli.nombre;ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;ST.volver={id,cli};guardar();
+// Al abrir la app (v44): SIEMPRE empieza en blanco (paso 1, toma nueva; conserva metrólogo y lugar). Si había una toma
+// con datos (cliente o equipos), se guarda antes en el 📋 Historial y en el paso 1 queda «↩ Volver a CLIENTE» para seguirla.
+// No cuenta como «abrir» si la app se usó hace menos de 10 min (el iPhone a veces recarga la app al volver a ella).
+if(!usoReciente()&&(ST.eqs.length||ST.cli.nombre.trim())&&archivar(true)){const g={...ST.gen},id=archivar.ultimo,cli=ST.cli.nombre;ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;ST.volver={id,cli};guardar();
  setTimeout(()=>toast('La toma de datos anterior quedó guardada en el 📋 Historial'),400)}
 render();
 if(BLOQ)bloquear();
