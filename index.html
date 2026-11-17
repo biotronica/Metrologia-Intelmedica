@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v40</title>
+<title>Metrología · Intelmedica v43</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -62,6 +62,8 @@ input.vacio{background:#fff6cc!important;border-color:#e0b100!important}
 .empty{text-align:center;color:var(--muted);padding:22px 8px;font-size:14px}
 .status{font-size:13px;color:var(--muted);margin-top:8px;min-height:18px}
 .hero{text-align:center;padding:30px 10px}.hero img{width:84px;height:84px;border-radius:20px}
+textarea{display:block;width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:10px;font-size:15px;font-family:inherit;background:#fff;color:var(--text)}textarea:disabled{background:#F0F3F6;color:#7a8794}
+#lock{display:none;position:fixed;inset:0;z-index:9000;background:linear-gradient(160deg,#0B2540,#123a5e);color:#fff;align-items:center;justify-content:center;padding:24px;overflow:auto}#lock.on{display:flex}#lock .lk{width:100%;max-width:340px;text-align:center}#lock h2{margin:10px 0 6px;font-size:22px}#lock p{opacity:.85;font-size:14px;margin:0 0 14px}#lock input{width:100%;text-align:center;font-size:26px;letter-spacing:.4em;padding:12px;border-radius:14px;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;margin-bottom:10px}#lock input::placeholder{letter-spacing:0;font-size:15px;color:rgba(255,255,255,.6)}#lock .e{min-height:20px;color:#FFB4B4;font-size:13px;margin-bottom:8px}#lock a{color:#9FE3EA;font-size:13px;display:inline-block;margin-top:14px}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);background:#16212C;color:#fff;padding:11px 16px;border-radius:12px;font-size:14px;opacity:0;transition:.25s;z-index:50;max-width:92%;text-align:center;pointer-events:none}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}#toast.err{background:var(--danger)}
 details summary{cursor:pointer;font-weight:700;color:var(--navy);font-size:14px}
@@ -69,6 +71,7 @@ details summary{cursor:pointer;font-weight:700;color:var(--navy);font-size:14px}
 </head>
 <body>
 <div id="app"></div>
+<div id="lock"></div>
 <div id="toast"></div>
 <script>
 'use strict';
@@ -79,6 +82,8 @@ const CONFIG={
  MANTENIMIENTOS:'1F4xPV_Ot0oJftSvz-GgLEmb6CfI5Mun4',   // carpeta de clientes
  BASE_CLIENTES:'Base de Clientes - Intelmedica',          // para autocompletar clientes
  COMPARTIDOS:'1C-CxBM-aL9MlLzKzOSkOMqX2JW_ZBqhq',     // Drive › Documentos compartidos
+ // v42: cuentas de Google autorizadas (se guarda la huella SHA-256 del correo en minúsculas, no el correo).
+ CUENTAS:['d0a586cb76fb32f7e87981f39b0275a5e44e7a32e6240bcb001a40eff5b15d24'],
  CARPETA_METRO:'METROLOGIA'                               // Documentos compartidos › METROLOGIA › tipo de equipo
 };
 // Plantillas oficiales de metrología (archivos en Drive) y las celdas de entrada de cada una.
@@ -142,6 +147,47 @@ const KEY='metrologia_intelmedica_v1';
 function estadoNuevo(){return{paso:'cliente',tpl:'',cli:{nombre:'',contacto:'',direccion:'',telefono:''},gen:{recepcion:hoy(),fecha:hoy(),lugar:'En Sitio',metrologo:METROLOGOS[0]},eqs:[],editando:'',carpeta:null}}
 let ST=Object.assign(estadoNuevo(),loadLS(KEY)||{});
 let AJ=Object.assign({mant:CONFIG.MANTENIMIENTOS,comp:CONFIG.COMPARTIDOS,tplIds:{}},loadLS(KEY+'_aj')||{});
+/* =================== Seguridad (v42): PIN, bloqueo por inactividad y cuentas autorizadas =================== */
+// El PIN se guarda como huella PBKDF2 (no el PIN). Protege la pantalla de la app en este dispositivo.
+const PKEY=KEY+'_pin',OKKEY=KEY+'_ok';
+let PIN=loadLS(PKEY),BLOQ=true,ultAct=Date.now(),OCUP=0,pinFallos=0,pinEspera=0,CUENTA=null;
+const minBloq=()=>+AJ.bloq||5;
+try{const t=+sessionStorage.getItem(OKKEY);if(PIN&&t&&Date.now()-t<minBloq()*60e3)BLOQ=false}catch(e){}
+const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+const sha=async t=>hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)));
+async function pinHash(pin,salt){const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);
+ return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:new TextEncoder().encode(salt),iterations:150000},k,256))}
+async function pinGuardar(pin){const salt=hex(crypto.getRandomValues(new Uint8Array(16)));PIN={salt,h:await pinHash(pin,salt)};saveLS(PKEY,PIN)}
+const pinOk=async pin=>!!PIN&&(await pinHash(pin,PIN.salt))===PIN.h;
+function marcaAct(){ultAct=Date.now();try{sessionStorage.setItem(OKKEY,String(ultAct))}catch(e){}}
+function desbloquear(){BLOQ=false;pinFallos=0;marcaAct();const l=document.getElementById('lock');l.className='';l.innerHTML='';document.getElementById('app').inert=false}
+// modo: 'pedir' (abrir la app), 'crear' (primer uso o PIN olvidado), 'actual' (cambiar: pide el actual y luego el nuevo)
+function bloquear(modo,msg){BLOQ=true;try{sessionStorage.removeItem(OKKEY)}catch(e){}
+ modo=modo||(PIN?'pedir':'crear');const l=document.getElementById('lock');document.getElementById('app').inert=true;try{document.activeElement&&document.activeElement.blur()}catch(e){}
+ const crear=modo==='crear';
+ l.innerHTML=`<form class="lk" id="lkF" autocomplete="off"><div style="font-size:44px">🔒</div><h2>${crear?'Cree su PIN':modo==='actual'?'PIN actual':'Metrología Intelmedica'}</h2>
+ <p>${crear?'Elija un PIN de 4 a 6 números. Se pedirá cada vez que se abra la app en este dispositivo.':modo==='actual'?'Escriba el PIN actual para cambiarlo.':'Escriba su PIN para entrar.'}</p>
+ <input id="lk1" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="${crear?'PIN nuevo':'PIN'}" autocomplete="off">
+ ${crear?'<input id="lk2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Repita el PIN" autocomplete="off">':''}
+ <div class="e" id="lkE">${msg||''}</div><button class="btn block" type="submit">${crear?'Guardar PIN':'Entrar'}</button>
+ ${modo==='actual'?'<a href="#" id="lkX">Cancelar</a>':''}${modo==='pedir'?'<a href="#" id="lkO">Olvidé el PIN</a>':''}</form>`;
+ l.className='on';const e=t=>{document.getElementById('lkE').textContent=t},i1=document.getElementById('lk1');setTimeout(()=>{try{i1.focus()}catch(x){}},50);
+ document.getElementById('lkF').onsubmit=async ev=>{ev.preventDefault();const a=i1.value.trim();
+  if(crear){const b=document.getElementById('lk2').value.trim();if(!/^\d{4,6}$/.test(a))return e('El PIN debe tener de 4 a 6 números.');if(a!==b)return e('Los dos PIN no coinciden.');await pinGuardar(a);desbloquear();toast('PIN guardado ✔');render();return}
+  if(Date.now()<pinEspera)return e(`Demasiados intentos. Espere ${Math.ceil((pinEspera-Date.now())/1000)} s.`);
+  if(await pinOk(a)){pinFallos=0;if(modo==='actual')return bloquear('crear');desbloquear();return}
+  pinFallos++;i1.value='';if(pinFallos>=5){pinEspera=Date.now()+30e3*Math.min(10,pinFallos-4);e('PIN incorrecto. Demasiados intentos: espere antes de volver a intentar.')}else e(`PIN incorrecto (${pinFallos} de 5).`)};
+ const x=document.getElementById('lkX');if(x)x.onclick=ev=>{ev.preventDefault();desbloquear()};
+ const o=document.getElementById('lkO');if(o)o.onclick=async ev=>{ev.preventDefault();e('Conéctese con una cuenta de Google autorizada para crear un PIN nuevo…');
+  try{await conectar();bloquear('crear','Cuenta verificada. Cree un PIN nuevo.')}catch(er){e(er.message||String(er))}}}
+['pointerdown','keydown','input'].forEach(t=>document.addEventListener(t,()=>{if(!BLOQ)marcaAct()},{passive:true,capture:true}));
+const revisarBloqueo=()=>{if(!BLOQ&&PIN&&!OCUP&&Date.now()-ultAct>minBloq()*60e3)bloquear()};
+setInterval(revisarBloqueo,15e3);document.addEventListener('visibilitychange',()=>{if(!document.hidden)revisarBloqueo()});
+// Cuenta de Google conectada: solo se aceptan las de CONFIG.CUENTAS (huella) y las adicionales de Ajustes.
+async function cuentaDe(tk){const r=await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)',{headers:{Authorization:'Bearer '+tk}});
+ if(!r.ok)throw new Error('No se pudo verificar la cuenta de Google. Intente de nuevo.');const e=String((await r.json()).user?.emailAddress||'').toLowerCase().trim();
+ if(!e)throw new Error('No se pudo verificar la cuenta de Google. Intente de nuevo.');const principal=CONFIG.CUENTAS.includes(await sha(e));
+ return{e,principal,ok:principal||(AJ.cuentas||[]).includes(e)}}
 const guardar=()=>saveLS(KEY,ST);
 // Historial: cada toma de datos se guarda al pulsar "Nueva toma de datos" (o al abrir otra del historial),
 // para poder abrirla después, corregirla y volver a generar los certificados.
@@ -262,14 +308,16 @@ const chip=q=>!q.hecho&&!confirmado(q)?'<span class="chip err">Revisar</span>':q
 
 /* =================== Google =================== */
 let token=null,tokenExp=0,tokenClient=null,pend=null;
-try{const t=JSON.parse(sessionStorage.getItem(KEY+'_tok'));if(t&&t.exp>Date.now()){token=t.token;tokenExp=t.exp}}catch(e){}
+try{const t=JSON.parse(sessionStorage.getItem(KEY+'_tok'));if(t&&t.exp>Date.now()){token=t.token;tokenExp=t.exp;CUENTA=t.c||null}}catch(e){}
 const conectado=()=>!!token&&Date.now()<tokenExp;
 class AuthError extends Error{constructor(){super('La sesión de Google expiró. Pulse Conectar.')}}
 function conectar(){
  return new Promise((res,rej)=>{
   if(!window.google?.accounts?.oauth2)return rej(new Error('No cargó el inicio de sesión de Google. Revise su conexión.'));
   if(!tokenClient)tokenClient=google.accounts.oauth2.initTokenClient({client_id:CONFIG.CLIENT_ID,scope:CONFIG.SCOPE,callback:r=>{
-   if(r.error)pend?.rej(new Error('Google: '+r.error));else{token=r.access_token;tokenExp=Date.now()+(r.expires_in-60)*1000;sessionStorage.setItem(KEY+'_tok',JSON.stringify({token,exp:tokenExp}));pend?.res()}pend=null}});
+   const p=pend;pend=null;if(r.error)return p?.rej(new Error('Google: '+r.error));const tk=r.access_token;
+   cuentaDe(tk).then(c=>{if(!c.ok){try{google.accounts.oauth2.revoke(tk,()=>{})}catch(e){}return p?.rej(new Error(`La cuenta ${c.e} no está autorizada para esta app. Use la cuenta de la empresa.`))}
+    token=tk;tokenExp=Date.now()+(r.expires_in-60)*1000;CUENTA={e:c.e,principal:c.principal};sessionStorage.setItem(KEY+'_tok',JSON.stringify({token,exp:tokenExp,c:CUENTA}));p?.res()}).catch(e=>p?.rej(e))}});
   pend={res,rej};tokenClient.requestAccessToken();
  });
 }
@@ -334,7 +382,7 @@ async function limpiarTemporales(){if(Date.now()-ultLimpieza<10*60e3)return;ultL
   for(const f of L)if(/\(temporal\)$/.test(f.name))await borrarTemp(f.id)}catch(e){if(e instanceof AuthError)throw e;console.warn('limpieza',e)}}
 async function generar(q,est){
  let wl=null;try{wl=await navigator.wakeLock?.request('screen')}catch(e){}   // que el celular no se bloquee mientras genera
- try{return await generarEq(q,est)}finally{try{wl&&wl.release()}catch(e){}}}
+ OCUP++;try{return await generarEq(q,est)}finally{OCUP--;marcaAct();try{wl&&wl.release()}catch(e){}}}
 async function generarEq(q,est){
  const t=T(q),a=A(q),C=a.celdas,K=ST.cli,G=ST.gen;
  if(!completo(q))throw new Error('Faltan datos en el equipo');
@@ -431,14 +479,29 @@ async function copiarDibujos(zO,zT,ht,ho,dO,ctO,ctT,copiadas){
  const rutaRelO=relsDe(ho.ruta),fRelO=zO.file(rutaRelO);
  const rO=fRelO?P.parseFromString(await fRelO.async('string'),'application/xml'):P.parseFromString(`<Relationships xmlns="${NS_PR}"/>`,'application/xml');
  for(const r of [...rO.getElementsByTagNameNS(NS_PR,'Relationship')].filter(r=>r.getAttribute('Type')===T_DRAW)){const viejo=resolver(ho.ruta,r.getAttribute('Target'));
-  const rv=zO.file(relsDe(viejo));if(rv){const d=P.parseFromString(await rv.async('string'),'application/xml');[...d.getElementsByTagNameNS(NS_PR,'Relationship')].forEach(x=>{if(x.getAttribute('TargetMode')!=='External'&&/\/image$/.test(x.getAttribute('Type')))zO.remove(resolver(viejo,x.getAttribute('Target')))})}
-  zO.remove(viejo);zO.remove(relsDe(viejo));[...ctO.getElementsByTagNameNS(NS_CT,'Override')].filter(x=>x.getAttribute('PartName')==='/'+viejo).forEach(x=>x.parentNode.removeChild(x));r.parentNode.removeChild(r)}
+  const rv=zO.file(relsDe(viejo));if(rv){const d=P.parseFromString(await rv.async('string'),'application/xml');[...d.getElementsByTagNameNS(NS_PR,'Relationship')].forEach(x=>{if(x.getAttribute('TargetMode')!=='External'&&/\/image$/.test(x.getAttribute('Type'))){const ruta=resolver(viejo,x.getAttribute('Target'));if(!Object.values(copiadas).includes(ruta))zO.remove(ruta)}})}
+  if(!Object.values(copiadas).includes(viejo)){zO.remove(viejo);zO.remove(relsDe(viejo))}[...ctO.getElementsByTagNameNS(NS_CT,'Override')].filter(x=>x.getAttribute('PartName')==='/'+viejo).forEach(x=>x.parentNode.removeChild(x));r.parentNode.removeChild(r)}
  hijos(wo,'drawing').forEach(x=>wo.removeChild(x));
  // poner el dibujo original de la plantilla
  const nuevo=await copiar(resolver(ht.ruta,drT[0].getAttribute('Target')));if(!nuevo)return;
  const id='rIdTplDibujo',rel=rO.createElementNS(NS_PR,'Relationship');rel.setAttribute('Id',id);rel.setAttribute('Type',T_DRAW);rel.setAttribute('Target',relativa(ho.ruta,nuevo));rO.documentElement.appendChild(rel);
  zO.file(rutaRelO,S.serializeToString(rO),{createFolders:false});
  const dr=dO.createElementNS(NS_M,'drawing');dr.setAttributeNS(NS_R,'r:id',id);insertarOrdenado(wo,dr,ORDEN_WS)}
+
+// v43: alto de filas. En las plantillas muchas filas tienen alto propio sin la marca customHeight (p. ej. F-23 fila 162 = 45);
+// Google Sheets las toma como automáticas y al exportar las deja en ~14,25. Se copia el alto de CADA fila de la plantilla
+// (las que no tienen alto usan el alto por defecto de la plantilla) y se marca como alto fijo.
+function copiarAltos(dt,dO){
+ const sdT=dt.getElementsByTagNameNS(NS_M,'sheetData')[0],sdO=dO.getElementsByTagNameNS(NS_M,'sheetData')[0];if(!sdT||!sdO)return;
+ const fT=dt.getElementsByTagNameNS(NS_M,'sheetFormatPr')[0],def=parseFloat(fT&&fT.getAttribute('defaultRowHeight'))||15;
+ const altos=new Map();let maxT=0;
+ hijos(sdT,'row').forEach(r=>{const i=+r.getAttribute('r'),h=parseFloat(r.getAttribute('ht'));if(i>maxT)maxT=i;if(h>0)altos.set(i,h)});
+ const filasO=new Map();hijos(sdO,'row').forEach(r=>filasO.set(+r.getAttribute('r'),r));
+ const poner=(r,h)=>{r.setAttribute('ht',String(h));r.setAttribute('customHeight','1')};
+ filasO.forEach((r,i)=>{if(i<=maxT)poner(r,altos.has(i)?altos.get(i):def)});
+ // filas con alto en la plantilla que no vinieron en el Excel exportado
+ altos.forEach((h,i)=>{if(filasO.has(i))return;const n=dO.createElementNS(NS_M,'row');n.setAttribute('r',String(i));poner(n,h);
+  const sig=hijos(sdO,'row').find(x=>+x.getAttribute('r')>i);sdO.insertBefore(n,sig||null)})}
 
 async function arreglarImpresion(outBlob,tplBlob){
  const JSZip=await cargarJSZip(),zO=await JSZip.loadAsync(outBlob),zT=await JSZip.loadAsync(tplBlob),P=new DOMParser(),S=new XMLSerializer();
@@ -458,6 +521,7 @@ async function arreglarImpresion(outBlob,tplBlob){
    const t=hijos(wt,nom)[0];if(!t)continue;if(nom==='headerFooter'&&/&G/.test(t.textContent))continue;
    const n=dO.importNode(t,true);if(nom==='pageSetup'){n.removeAttributeNS(NS_R,'id');[...n.attributes].filter(a=>a.localName==='id'&&a.prefix).forEach(a=>n.removeAttributeNode(a))}
    insertarOrdenado(wo,n,ORDEN_WS)}
+  try{copiarAltos(dt,dO)}catch(e){console.warn('No se pudo copiar el alto de filas',e)}
   try{await copiarDibujos(zO,zT,ht,ho,dO,ctO,ctT,copiadas)}catch(e){console.warn('No se pudo copiar el logo',e)}
   zO.file(ho.ruta,S.serializeToString(dO))}
  zO.file('[Content_Types].xml',S.serializeToString(ctO));
@@ -496,6 +560,47 @@ async function archivoDe(q){
  if(!r.ok)throw new Error('No se pudo descargar el Excel de Drive (HTTP '+r.status+')');
  const blob=await r.blob(),name=q.archivo||(cert(q)+' '+q.equipo+'.xlsx');idbPut(q.id,{name,blob}).catch(()=>{});return{name,blob};
 }
+/* ============ Recuperar una toma de datos desde Drive (v41) ============ */
+// Los certificados generados en Drive tienen TODOS los datos de la toma (cliente, equipo, lecturas). Si los datos
+// del dispositivo se pierden (otro navegador, otro ícono, se borró el sitio…), la toma se reconstruye leyendo esos Excel.
+let DRVF=null;
+async function carpetaMetro(){const c=AJ.comp||CONFIG.COMPARTIDOS,f=await driveList(`'${dq(c)}' in parents and mimeType='${FOLDER}' and trashed=false`);const m=f.find(x=>norm(x.name)===norm(CONFIG.CARPETA_METRO));if(!m)throw new Error('No se encontró la carpeta METROLOGIA en Drive');return m.id}
+async function listarTomasDrive(){const m=await carpetaMetro();const f=await driveList(`'${dq(m)}' in parents and mimeType='${FOLDER}' and trashed=false`);
+ return f.filter(x=>/^\d{4}-\d{2}-\d{2} /.test(x.name)).sort((a,b)=>b.name.localeCompare(a.name))}
+// Lee los valores de una hoja de un xlsx (JSZip): {A1:valor}
+async function leerHoja(blob,nombreHoja){const JSZip=await cargarJSZip(),z=await JSZip.loadAsync(blob),P=new DOMParser();const{H}=await hojasDe(z);
+ const h=H.find(x=>x.nombre===nombreHoja.trim())||H.find(x=>!x.oculta)||H[0];const ss=[];const fs=z.file('xl/sharedStrings.xml');
+ if(fs){const d=P.parseFromString(await fs.async('string'),'application/xml');[...d.getElementsByTagNameNS(NS_M,'si')].forEach(si=>ss.push([...si.getElementsByTagNameNS(NS_M,'t')].map(t=>t.textContent).join('')))}
+ const d=P.parseFromString(await z.file(h.ruta).async('string'),'application/xml'),V={};
+ [...d.getElementsByTagNameNS(NS_M,'c')].forEach(c=>{const r=c.getAttribute('r'),t=c.getAttribute('t'),v=c.getElementsByTagNameNS(NS_M,'v')[0];
+  if(t==='inlineStr'){V[r]=[...c.getElementsByTagNameNS(NS_M,'t')].map(x=>x.textContent).join('');return}if(!v)return;const x=v.textContent;
+  V[r]=t==='s'?ss[+x]??'':t==='str'||t==='e'?x:t==='b'?x==='1':(x!==''&&isFinite(+x)?+x:x)});return V}
+const fechaDe=v=>{if(typeof v==='number'&&v>20000&&v<80000){const d=new Date(Date.UTC(1899,11,30)+Math.round(v)*864e5);return d.toISOString().slice(0,10)}
+ const s=String(v??'').trim();let m=/^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);if(m)return`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+ m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s);return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:''};
+const strV=v=>v===undefined||v===null?'':typeof v==='number'?String(+v.toPrecision(12)):String(v).trim();
+function equipoDesdeExcel(k,V,file){const t=TIPOS[k],a=ARCHIVOS[t.archivo],C=a.celdas;
+ const q={id:uid(),tpl:k,certificado:'',acred:'',equipo:strV(V[C.equipo])||t.equipo,marca:strV(V[C.marca]),modelo:strV(V[C.modelo]),serie:strV(V[C.serie]),activo:strV(V[C.activo]),ubicacion:strV(V[C.ubicacion]),
+  tIni:strV(V[C.tIni]),tFin:strV(V[C.tFin]),hIni:strV(V[C.hIni]),hFin:strV(V[C.hFin]),v:{},hecho:`https://drive.google.com/file/d/${file.id}/view`,err:'',archivo:file.name};
+ const c=strV(V[C.certificado]).replace(/^'/,''),m=/^(\d+)-(\d{2})$/.exec(c);if(m){q.acred='no';q.certificado=m[1]}else{q.acred='si';q.certificado=c}
+ (a.extra||[]).forEach(x=>{if(!x.cell)return;let v=strV(V[x.cell]);if(capNeg(x,q))v=v.replace(/^\s*[-−]\s*/,'');q[x.k]=v});
+ if(k==='mon'){const hay=f=>[0,1,2,3].some(i=>['B','C','D','E','F','G','H','I','J'].some(cl=>strV(V[cl+(f+i)])!==''));q.ibp=hay(273)?'CANAL 1 Y 2':hay(260)?'CANAL 1':'NO TIENE'}
+ PUNTOS(t,q).forEach(p=>{if(!p.prog.fijo){const pv=strV(V[p.prog.cell]);q.v[p.prog.cell]=pv===''?String(p.prog.def):pv}p.lec.forEach(l=>{const x=strV(V[l.cell]);if(x!=='')q.v[l.cell]=x})});
+ q.mpa=k==='mvac'&&(q.unidades==='kPa'||q.unidades==='MPa');q.conf=true;
+ const g={nombre:strV(V[C.nombre]),contacto:strV(V[C.contacto]),direccion:strV(V[C.direccion]),telefono:strV(V[C.telefono]),
+  lugar:/sitio/i.test(strV(V[C.lugar]))?'En Sitio':LUGARES[1],metrologo:strV(V[C.metrologo]),recepcion:fechaDe(V[C.recepcion]),fecha:fechaDe(V[C.fecha])};
+ return{q,g}}
+async function recuperarDeDrive(carpeta,est){
+ const subs=await driveList(`'${dq(carpeta.id)}' in parents and mimeType='${FOLDER}' and trashed=false`);const eqs=[];let g=null,n=0,fallos=0;
+ for(const sb of subs){const k=Object.keys(TIPOS).find(x=>norm(subCarpeta({tpl:x}))===norm(sb.name));if(!k)continue;
+  const fs=(await driveList(`'${dq(sb.id)}' in parents and trashed=false`)).filter(f=>/\.xlsx$/i.test(f.name)&&!/\(temporal\)/i.test(f.name));
+  for(const f of fs){n++;est(`Leyendo ${n}: ${f.name}`);try{const blob=await descargar(f.id);const V=await leerHoja(blob,ARCHIVOS[TIPOS[k].archivo].hoja);const r=equipoDesdeExcel(k,V,f);eqs.push(r.q);g=g||r.g;idbPut(r.q.id,{name:f.name,blob}).catch(()=>{})}catch(e){console.warn(e);fallos++}}}
+ if(!eqs.length)throw new Error('No se encontraron certificados de la app en esa carpeta');
+ eqs.sort((a,b)=>(+a.certificado||0)-(+b.certificado||0));
+ const nuevo=estadoNuevo();Object.assign(nuevo.cli,{nombre:g.nombre,contacto:g.contacto,direccion:g.direccion,telefono:g.telefono});
+ Object.assign(nuevo.gen,{lugar:g.lugar,metrologo:g.metrologo||nuevo.gen.metrologo,recepcion:g.recepcion||nuevo.gen.recepcion,fecha:g.fecha||carpeta.name.slice(0,10)});
+ nuevo.eqs=eqs;nuevo.tpl=eqs[eqs.length-1].tpl;nuevo.paso='generar';return{st:nuevo,fallos}}
+
 // ZIP sin compresión (método "store"): al abrirlo en Archivos crea METROLOGIA/<tipo>/…
 const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
 const crc32=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0};
@@ -568,7 +673,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v40';
+const VERSION='v43';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -696,7 +801,15 @@ function vAjustes(){
  <div class="card"><div class="card-title">App y manual</div><p class="muted small" style="margin-top:0">${ESAPP?'La app ya está instalada en este dispositivo.':'Instálela para abrirla con el ícono, en pantalla completa.'}</p>
  ${ESAPP?'':'<button class="btn navy block" data-a="verInstalar">⬇ Instalar la app</button>'}
  <a class="btn ghost block" href="${MANUAL_URL}" target="_blank" rel="noopener" style="margin-top:8px;text-align:center;text-decoration:none">📖 Manual de usuario (Drive)</a></div>
- <div class="card"><div class="card-title">Sesión</div><p class="muted small" style="margin-top:0">${conectado()?'Conectado a Google.':'Sin conexión con Google.'}</p><button class="btn ghost block" data-a="conectar">${conectado()?'Volver a conectar':'Conectar con Google'}</button></div>
+ <div class="card"><div class="card-title">🔒 Seguridad</div>
+ <p class="muted small" style="margin-top:0">La app pide el PIN al abrirse y se bloquea sola si queda sin uso.</p>
+ <label>Bloquear si queda sin uso durante<select id="ajBloq">${[1,2,5,10,15].map(m=>`<option value="${m}" ${minBloq()===m?'selected':''}>${m} minuto${m>1?'s':''}</option>`).join('')}</select></label>
+ <div style="display:flex;gap:8px;margin-top:8px"><button class="btn ghost" style="flex:1" data-a="cambiarPin">Cambiar PIN</button><button class="btn navy" style="flex:1" data-a="bloquearYa">🔒 Bloquear ahora</button></div>
+ <div style="margin-top:14px"><b class="small">Cuentas de Google autorizadas</b><p class="muted small" style="margin:4px 0 6px">Solo entra a Drive la cuenta de la empresa y las cuentas adicionales de esta lista (una por línea). ${conectado()&&CUENTA?.principal?'':'Para cambiar la lista, conéctese con la cuenta de la empresa.'}</p>
+ <textarea id="ajCuentas" rows="3" placeholder="correo@gmail.com" autocapitalize="off" autocomplete="off" spellcheck="false" ${conectado()&&CUENTA?.principal?'':'disabled'}>${esc((AJ.cuentas||[]).join('\n'))}</textarea>
+ ${conectado()&&CUENTA?.principal?'<button class="btn ghost block" style="margin-top:6px" data-a="guardarCuentas">Guardar cuentas</button>':''}</div></div>
+ <div class="card"><div class="card-title">Sesión</div><p class="muted small" style="margin-top:0">${conectado()?'Conectado a Google'+(CUENTA?.e?' como <b>'+esc(CUENTA.e)+'</b>.':'.'):'Sin conexión con Google.'}</p><button class="btn ghost block" data-a="conectar">${conectado()?'Volver a conectar':'Conectar con Google'}</button>
+ ${conectado()?'<button class="btn ghost block" style="margin-top:8px" data-a="cerrarSesion">Cerrar sesión de Google</button>':''}</div>
  <div class="card"><details><summary>Cómo funciona</summary><ol class="small muted"><li>Datos del cliente y de la calibración, una sola vez.</li><li>Primero se elige el tipo de equipo (flujómetro, manómetro de baja o de alta, manovacuómetro o ventilador) y se usa su plantilla.</li><li>Cada equipo: N.º de certificado, identificación, condiciones ambientales y lecturas.</li><li>Generar: se copia la plantilla oficial, se escriben los datos en sus celdas de entrada y se guarda el Excel en Drive › Documentos compartidos › ${CONFIG.CARPETA_METRO} › fecha y cliente › tipo de equipo. Las fórmulas y la gráfica de la plantilla calculan el certificado.</li></ol></details></div></div>`;
 }
 const fFecha=f=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(f||'');return m?`${m[3]}/${m[2]}/${m[1]}`:esc(f||'—')};
@@ -709,8 +822,17 @@ function histLista(){
   <div class="s">Calibración ${fFecha(S.gen?.fecha)} · ${E.length} equipo(s) · ${g===E.length?'todos generados':`${g} de ${E.length} generado(s)`}<br>${esc(tipos)}</div>
   <div class="s" style="margin-top:4px">${E.map(q=>q.certificado?`<span class="${certCls(q)}">${esc(cert(q))}</span>`:'').join(' ')}</div></div>
   <div style="display:flex;flex-direction:column;gap:6px"><button class="btn sm" data-a="histAbrir" data-id="${h.id}">Abrir</button><button class="btn sm ghost" data-a="histBorrar" data-id="${h.id}" title="Borrar del historial">🗑</button></div></div>`}).join('')}
+function vDrive(){
+ return topbar('Recuperar desde Drive','Certificados ya generados','cerrarDrive')+`<div class="content"><div class="card"><div class="card-title">☁️ Tomas de datos en Drive</div>
+ <p class="muted small" style="margin-top:0">Elija la carpeta (fecha y cliente). La app lee los certificados que ya están en Drive y arma de nuevo la toma de datos completa: cliente, equipos y lecturas. Puede seguir agregando equipos o volver a generar.</p>
+ <input id="drvQ" placeholder="Buscar cliente o fecha" autocomplete="off" style="margin-bottom:10px">
+ <div id="drvLista">${drvLista('')}</div><div class="status" id="estado"></div></div></div>`}
+function drvLista(b){if(DRVF===null)return'<div class="empty">Cargando carpetas de Drive…</div>';const L=DRVF.filter(f=>!b||norm(f.name).includes(norm(b)));
+ return L.length?L.slice(0,80).map(f=>`<div class="eq" data-a="drvAbrir" data-id="${esc(f.id)}"><div class="main"><div class="t">${esc(f.name.slice(11))}</div><div class="s">Calibración ${fFecha(f.name.slice(0,10))}</div></div><span class="btn sm">Recuperar</span></div>`).join(''):'<div class="empty">No hay carpetas que coincidan.</div>'}
 function vHistorial(){
- return topbar('Historial','Tomas de datos anteriores','cerrarHist')+`<div class="content"><div class="card"><div class="card-title">📋 Tomas de datos (${HIST.length})</div>
+ return topbar('Historial','Tomas de datos anteriores','cerrarHist')+`<div class="content">
+ <div class="card" style="border-left:4px solid var(--teal)"><div class="card-title">☁️ ¿No está la toma que busca?</div><p class="small" style="margin-top:0">Si la tomó en otro dispositivo o navegador, o se borraron los datos, se puede armar de nuevo con los certificados ya generados en Drive.</p><button class="btn navy block" data-a="verDrive">☁️ Recuperar desde Drive</button></div>
+ <div class="card"><div class="card-title">📋 Tomas de datos (${HIST.length})</div>
  <p class="muted small" style="margin-top:0">Abra una toma de datos para corregirla y volver a generar sus certificados.</p>
  <input id="histQ" value="${esc(HQ)}" placeholder="Buscar cliente, certificado o serie" autocomplete="off" style="margin-bottom:10px">
  <div id="histLista">${histLista()}</div></div></div>`;
@@ -720,7 +842,7 @@ function vLogin(){
  return topbar('Google Drive','Sesión cerrada','cerrarLogin')+`<div class="content"><div class="card hero"><img src="icon-192.png" alt=""><h2 style="margin:12px 0 6px">Ingrese a Google Drive</h2><p class="muted small">Conéctese con la cuenta de Google de INTELMEDICA para seguir. Los datos tomados no se pierden: al conectarse vuelve a donde estaba.</p><button class="btn navy" data-a="conectar">Conectar con Google</button></div></div>`;
 }
 function render(){
- const V=VISTA==='login'?vLogin:VISTA==='ajustes'?vAjustes:VISTA==='historial'?vHistorial:VISTA==='instalar'?vInstalar:ST.editando?vEditor:{cliente:vCliente,equipos:vEquipos,generar:vGenerar}[ST.paso]||vCliente;
+ const V=VISTA==='login'?vLogin:VISTA==='ajustes'?vAjustes:VISTA==='historial'?vHistorial:VISTA==='instalar'?vInstalar:VISTA==='drive'?vDrive:ST.editando?vEditor:{cliente:vCliente,equipos:vEquipos,generar:vGenerar}[ST.paso]||vCliente;
  $('#app').innerHTML=V();
 }
 
@@ -737,6 +859,20 @@ const ACT={
  instalar:()=>{if(INSTP){const e=INSTP;e.prompt();e.userChoice.then(r=>{if(r&&r.outcome==='accepted'){INSTP=null;toast('Instalando Metrología ✔')}render()}).catch(()=>{});return}
   if(VISTA!=='instalar')VISTA_PREV=VISTA;VISTA='instalar';render();scrollTo(0,0)},
  verInstalar:()=>ACT.instalar(),
+ cambiarPin:()=>bloquear('actual'),
+ bloquearYa:()=>bloquear(),
+ guardarCuentas:()=>{if(!(conectado()&&CUENTA?.principal))return toast('Conéctese con la cuenta de la empresa','err');
+  const L=[...new Set($('#ajCuentas').value.split(/[\s,;]+/).map(x=>x.trim().toLowerCase()).filter(Boolean))],mal=L.filter(x=>!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+  if(mal.length)return toast('Correo no válido: '+mal[0],'err');AJ.cuentas=L;saveLS(KEY+'_aj',AJ);render();toast(L.length?`Cuentas autorizadas guardadas (${L.length})`:'Solo queda autorizada la cuenta de la empresa')},
+ cerrarSesion:()=>{const tk=token;token=null;tokenExp=0;CUENTA=null;try{sessionStorage.removeItem(KEY+'_tok')}catch(e){}try{tk&&google.accounts.oauth2.revoke(tk,()=>{})}catch(e){}render();toast('Sesión de Google cerrada')},
+ verDrive:()=>run(async()=>{if(!conectado()){irALogin();return}VISTA='drive';DRVF=null;render();scrollTo(0,0);DRVF=await listarTomasDrive();if(VISTA==='drive'){$('#drvLista').innerHTML=drvLista($('#drvQ')?.value||'')}}),
+ cerrarDrive:()=>{VISTA='historial';render();scrollTo(0,0)},
+ drvAbrir:id=>run(async()=>{const f=(DRVF||[]).find(x=>x.id===id);if(!f)return;
+  if(ST.eqs.some(q=>!q.hecho)&&!confirm('La toma de datos actual tiene equipos sin generar. Se guardará en el Historial y se abrirá la recuperada. ¿Continuar?'))return;
+  if(ST.eqs.length)archivar();
+  const e=t=>{const x=$('#estado');if(x)x.textContent=t};let r;OCUP++;try{r=await recuperarDeDrive(f,e)}finally{OCUP--;marcaAct()}
+  ST=r.st;ST.histId=uid();archivar();VISTA='';guardar();render();scrollTo(0,0);
+  toast(`Toma recuperada: ${ST.eqs.length} equipo(s) de ${ST.cli.nombre}`+(r.fallos?` · ${r.fallos} archivo(s) no se pudieron leer`:''))}),
  volverToma:()=>{const h=HIST.find(x=>x.id===ST.volver?.id);if(!h)return;ST=Object.assign(estadoNuevo(),JSON.parse(JSON.stringify(h.st)));ST.histId=h.id;delete ST.volver;VISTA='';guardar();render();scrollTo(0,0);toast('Toma de datos recuperada ✔')},
  cerrarInst:()=>{VISTA=VISTA_PREV==='instalar'?'':VISTA_PREV;render();scrollTo(0,0)},
  cerrarHist:()=>{VISTA='';render();scrollTo(0,0)},
@@ -808,7 +944,9 @@ document.addEventListener('focusin',ev=>{const el=ev.target;
 document.addEventListener('mouseup',ev=>{if(esReemplazo(ev.target)&&document.activeElement===ev.target&&ev.target.selectionStart===0&&ev.target.selectionEnd===ev.target.value.length)ev.preventDefault()},true);
 document.addEventListener('input',ev=>{
  const el=ev.target,d=el.dataset;
+ if(el.id==='ajBloq'){AJ.bloq=+el.value||5;saveLS(KEY+'_aj',AJ);marcaAct();return}
  if(el.id==='histQ'){HQ=el.value;const l=$('#histLista');if(l)l.innerHTML=histLista();return}
+ if(el.id==='drvQ'){const l=$('#drvLista');if(l)l.innerHTML=drvLista(el.value);return}
  if(el.tagName==='INPUT'&&(d.g||d.q||d.cell)&&el.type!=='date'&&el.value!==MAY(el.value)){const a=el.selectionStart,b=el.selectionEnd;el.value=MAY(el.value);try{el.setSelectionRange(a,b)}catch(e){}}
  if(d.g==='cli'||d.g==='gen'){ST[d.g][d.k]=el.value;if(d.g==='cli'&&d.k==='nombre'){const b=$('#btnSig');if(b)b.disabled=!(el.value.trim()&&ST.tpl)}guardar();return}
  if(d.conf)return;
@@ -861,11 +999,12 @@ if(!ESAPP){window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();
 if(ST.eqs.length&&!ST.histId&&ST.eqs.every(q=>q.hecho)&&(ST.gen.fecha||'')<hoy()&&archivar()){const g={...ST.gen},id=archivar.ultimo,cli=ST.cli.nombre;ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;ST.volver={id,cli};guardar();
  setTimeout(()=>toast('La toma de datos anterior quedó guardada en el 📋 Historial'),400)}
 render();
+if(BLOQ)bloquear();
 // Pedir almacenamiento persistente y, si localStorage quedó vacío, recuperar los datos de la copia en IndexedDB.
 try{navigator.storage?.persist?.()}catch(e){}
 (async()=>{try{const K3=[KEY,KEY+'_hist',KEY+'_aj'];
- if(K3.every(k=>!localStorage.getItem(k))){let n=0;for(const k of K3){const t=await idbGet('__ls__'+k);if(t){localStorage.setItem(k,t);n++}}if(n)location.reload()}
- else K3.forEach(k=>{const t=localStorage.getItem(k);if(t)respaldo(k,t)})}catch(e){}})();
+ if(K3.every(k=>!localStorage.getItem(k))){let n=0;for(const k of [...K3,PKEY]){if(localStorage.getItem(k))continue;const t=await idbGet('__ls__'+k);if(t){localStorage.setItem(k,t);n++}}if(n)location.reload()}
+ else [...K3,PKEY].forEach(k=>{const t=localStorage.getItem(k);if(t)respaldo(k,t)})}catch(e){}})();
 if(conectado())run(async()=>{await cargarClientes();if(ST.paso==='cliente'&&!ST.editando&&VISTA!=='ajustes'){const a=document.activeElement;if(!a||a===document.body)render()}});
 </script>
 </body>
