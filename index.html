@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v44</title>
+<title>Metrología · Intelmedica v45</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -398,8 +398,11 @@ async function generarEq(q,est){
  await limpiarTemporales();
  est('Copiando la plantilla oficial…');
  const tpl=await plantilla(q);
- // Nombre del archivo: CERTIFICADO TIPO SERIE CLIENTE FECHA-DE-CALIBRACIÓN (p. ej. 50001-26 MONITOR MULTIPARÁMETRO 00777 CLINICA X 2026-11-10.xlsx)
- const nombre=MAY(`${cert(q)} ${t.tipo.replace(/ \/.*$/,'')} ${q.serie&&!/^ni$/i.test(q.serie)?q.serie:(q.activo||'NI')} ${String(K.nombre||'').trim()} ${G.fecha||''}`).replace(/[\\/:*?"<>|#%]+/g,'-').replace(/\s+/g,' ').trim();
+ // Nombre del archivo (v45): CERTIFICADO TIPO MARCA CLIENTE FECHA-DE-CALIBRACIÓN (p. ej. 50001-26 MONITOR MULTIPARÁMETRO MINDRAY CLINICA X 2026-11-10.xlsx).
+ // Sin marca: la serie; sin serie: el código (N.º interno). «NI», «N/A»… cuentan como vacío.
+ const tiene=v=>{const x=String(v||'').trim();return x&&!/^(ni|n\/?a|na|no|-+|s\/?n|sin.*)$/i.test(x)?x:''};
+ const ident=tiene(q.marca)||tiene(q.serie)||tiene(q.activo)||'NI';
+ const nombre=MAY(`${cert(q)} ${t.tipo.replace(/ \/.*$/,'')} ${ident} ${String(K.nombre||'').trim()} ${G.fecha||''}`).replace(/[\\/:*?"<>|#%]+/g,'-').replace(/\s+/g,' ').trim();
  const tmp=await subir(tpl,{name:nombre+' (temporal)',mimeType:GSHEET},MIME_XLSX);
  try{
   const meta=await api(SH+tmp.id+'?fields=sheets.properties(sheetId,title,hidden)');
@@ -678,7 +681,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v44';
+const VERSION='v45';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
