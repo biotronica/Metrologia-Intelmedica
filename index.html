@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v45</title>
+<title>Metrología · Intelmedica v49</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -388,13 +388,36 @@ async function limpiarTemporales(){if(Date.now()-ultLimpieza<10*60e3)return;ultL
 async function generar(q,est){
  let wl=null;try{wl=await navigator.wakeLock?.request('screen')}catch(e){}   // que el celular no se bloquee mientras genera
  OCUP++;try{return await generarEq(q,est)}finally{OCUP--;marcaAct();try{wl&&wl.release()}catch(e){}}}
+// v48: si el nombre del archivo pasa de NOM_MAX letras se abrevia: primero palabras comunes del equipo y del cliente
+// (MÁQUINA→MAQ., HOSPITAL→HOSP., DEPARTAMENTAL→DPTAL., …, sin «DE/DEL/LA/Y»), y si aún es largo se quitan palabras
+// del final del cliente (deja al menos 2) y luego del equipo. Certificado, marca y fecha no se tocan.
+const NOM_MAX=80;
+const ABREV={MAQUINA:'MAQ.',ANESTESIA:'ANEST.',MULTIPARAMETRO:'MULTIP.',MANOVACUOMETRO:'MANOVAC.',MANOMETRO:'MANOM.',VENTILADOR:'VENT.',FLUJOMETRO:'FLUJ.',
+ DIGITAL:'DIG.',MECANICO:'MEC.',PORTATIL:'PORT.',NEONATAL:'NEON.',PEDIATRICO:'PED.',TRANSPORTE:'TRANSP.',PRESION:'PRES.',
+ HOSPITAL:'HOSP.',DEPARTAMENTAL:'DPTAL.',UNIVERSITARIO:'UNIV.',UNIVERSITARIA:'UNIV.',UNIVERSIDAD:'UNIV.',FUNDACION:'FUND.',CLINICA:'CLIN.',CENTRO:'CTRO.',
+ MEDICO:'MED.',MEDICA:'MED.',MEDICOS:'MED.',INSTITUTO:'INST.',SOCIEDAD:'SOC.',ASOCIACION:'ASOC.',EMPRESA:'EMP.',SOCIAL:'SOC.',
+ SERVICIOS:'SERV.',SERVICIO:'SERV.',INTERNACIONAL:'INTL.',NACIONAL:'NAL.',LABORATORIO:'LAB.',ODONTOLOGICA:'ODONT.',ODONTOLOGIA:'ODONT.',
+ ESPECIALIZADA:'ESPEC.',ESPECIALIZADO:'ESPEC.',INTEGRAL:'INTEG.',COOPERATIVA:'COOP.',CORPORACION:'CORP.',ADMINISTRADORA:'ADMIN.',
+ MUNICIPAL:'MPAL.',REGIONAL:'REG.',GENERAL:'GRAL.',ATENCION:'ATN.',PRESTADORA:'PREST.',DIAGNOSTICO:'DX'};
+const PALVACIAS=new Set(['DE','DEL','LA','LAS','LOS','EL','Y','E']);
+const sinTilde=x=>x.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const abreviar=t=>t.split(/\s+/).filter(w=>w&&!PALVACIAS.has(sinTilde(w.toUpperCase()))).map(w=>ABREV[sinTilde(w.toUpperCase()).replace(/[.,]/g,'')]||w).join(' ');
+function nombreCorto(certi,equipo,ident,cliente,fecha){
+ const limpiar=x=>MAY(x).replace(/[\\/:*?"<>|#%]+/g,'-').replace(/\s+/g,' ').trim();
+ const arma=(e,c)=>limpiar(`${certi} ${e} ${ident} ${c} ${fecha}`);
+ let e=equipo,c=cliente,n=arma(e,c);if(n.length<=NOM_MAX)return n;
+ e=abreviar(MAY(e));n=arma(e,c);if(n.length<=NOM_MAX)return n;
+ c=abreviar(MAY(c));n=arma(e,c);if(n.length<=NOM_MAX)return n;
+ let pc=c.split(' ');while(pc.length>2&&arma(e,pc.join(' ')).length>NOM_MAX)pc.pop();c=pc.join(' ');
+ let pe=e.split(' ');while(pe.length>1&&arma(pe.join(' '),c).length>NOM_MAX)pe.pop();e=pe.join(' ');
+ return arma(e,c)}
 async function generarEq(q,est){
  const t=T(q),a=A(q),C=a.celdas,K=ST.cli,G=ST.gen;
  if(!completo(q))throw new Error('Faltan datos en el equipo');
  if(!confirmado(q))throw new Error('Hay lecturas fuera de ±10 % sin corregir ni confirmar');
  est('Buscando la carpeta del cliente…');
  // Destino: Documentos compartidos › METROLOGIA › FECHA CLIENTE › tipo de equipo (las carpetas se crean si no existen).
- const cMet=await subcarpeta(AJ.comp||CONFIG.COMPARTIDOS,CONFIG.CARPETA_METRO),cAnio=await subcarpeta(await subcarpeta(cMet,carpetaToma()),subCarpeta(q));
+ const cMet=await subcarpeta(AJ.comp||CONFIG.COMPARTIDOS,CONFIG.CARPETA_METRO),cAnio=await subcarpeta(await carpetaTomaId(cMet),subCarpeta(q));
  await limpiarTemporales();
  est('Copiando la plantilla oficial…');
  const tpl=await plantilla(q);
@@ -402,7 +425,7 @@ async function generarEq(q,est){
  // Sin marca: la serie; sin serie: el código (N.º interno). «NI», «N/A»… cuentan como vacío.
  const tiene=v=>{const x=String(v||'').trim();return x&&!/^(ni|n\/?a|na|no|-+|s\/?n|sin.*)$/i.test(x)?x:''};
  const ident=tiene(q.marca)||tiene(q.serie)||tiene(q.activo)||'NI';
- const nombre=MAY(`${cert(q)} ${String(q.equipo||'').trim()||t.tipo.replace(/ \/.*$/,'')} ${ident} ${String(K.nombre||'').trim()} ${G.fecha||''}`).replace(/[\\/:*?"<>|#%]+/g,'-').replace(/\s+/g,' ').trim();
+ const nombre=nombreCorto(cert(q),String(q.equipo||'').trim()||t.tipo.replace(/ \/.*$/,''),ident,String(K.nombre||'').trim(),G.fecha||'');
  const tmp=await subir(tpl,{name:nombre+' (temporal)',mimeType:GSHEET},MIME_XLSX);
  try{
   const meta=await api(SH+tmp.id+'?fields=sheets.properties(sheetId,title,hidden)');
@@ -560,7 +583,18 @@ const idbGet=k=>idbOp('readonly',st=>st.get(k));
 const idbDel=k=>idbOp('readwrite',st=>st.delete(k));
 const subCarpeta=q=>MAY(T(q)?.tipo||'Equipos').replace(/[\\/:*?"<>|]/g,'-').trim();
 // En Drive, cada toma de datos va en su carpeta: fecha de calibración + cliente (p. ej. 2026-11-09 CLINICA UNO).
-const carpetaToma=()=>MAY(`${ST.gen.fecha||hoy()} ${ST.cli.nombre||'SIN CLIENTE'}`).replace(/[\\/:*?"<>|#%]+/g,'-').replace(/\s+/g,' ').trim();
+// v49: en el nombre de la carpeta «FECHA CLIENTE», si el cliente pasa de CLI_MAX letras se abrevia (mismas abreviaturas
+// que el nombre del archivo) y, si aún es largo, se quitan palabras del final (deja al menos 2).
+const CLI_MAX=40;
+function clienteCorto(c){c=MAY(String(c||'').trim()).replace(/\s+/g,' ');if(c.length<=CLI_MAX)return c;
+ c=abreviar(c);if(c.length<=CLI_MAX)return c;const p=c.split(' ');while(p.length>2&&p.join(' ').length>CLI_MAX)p.pop();return p.join(' ')}
+const limpiaCarpeta=x=>MAY(x).replace(/[\\/:*?"<>|#%]+/g,'-').replace(/\s+/g,' ').trim();
+const carpetaToma=()=>limpiaCarpeta(`${ST.gen.fecha||hoy()} ${clienteCorto(ST.cli.nombre)||'SIN CLIENTE'}`);
+const carpetaTomaLarga=()=>limpiaCarpeta(`${ST.gen.fecha||hoy()} ${ST.cli.nombre||'SIN CLIENTE'}`);
+// Si ya existe la carpeta con el nombre completo (creada antes de v49), se sigue usando esa para no partir la toma en dos.
+async function carpetaTomaId(cMet){const corto=carpetaToma(),largo=carpetaTomaLarga();
+ if(corto!==largo){const fs=await driveList(`'${dq(cMet)}' in parents and mimeType='${FOLDER}' and trashed=false`);const f=fs.find(x=>norm(x.name)===norm(largo));if(f)return f.id}
+ return subcarpeta(cMet,corto)}
 async function archivoDe(q){
  let a=null;try{a=await idbGet(q.id)}catch(e){}
  if(a&&a.blob)return{name:a.name,blob:a.blob};
@@ -683,7 +717,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v47';
+const VERSION='v49';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
