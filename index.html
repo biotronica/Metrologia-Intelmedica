@@ -531,8 +531,8 @@ async function arreglarImpresion(outBlob,tplBlob){
    insertarOrdenado(wo,n,ORDEN_WS)}
   try{copiarAltos(dt,dO)}catch(e){console.warn('No se pudo copiar el alto de filas',e)}
   try{await copiarDibujos(zO,zT,ht,ho,dO,ctO,ctT,copiadas)}catch(e){console.warn('No se pudo copiar el logo',e)}
-  zO.file(ho.ruta,S.serializeToString(dO))}
- zO.file('[Content_Types].xml',S.serializeToString(ctO));
+  zO.file(ho.ruta,S.serializeToString(dO),{createFolders:false})}
+ zO.file('[Content_Types].xml',S.serializeToString(ctO),{createFolders:false});
  // áreas de impresión y títulos (nombres definidos _xlnm.*) y hoja activa
  const wbO=O.wb.documentElement,wbT=Tp.wb.documentElement;
  let dnO=hijos(wbO,'definedNames')[0];
@@ -543,7 +543,9 @@ async function arreglarImpresion(outBlob,tplBlob){
   if(!dnO){dnO=O.wb.createElementNS(NS_M,'definedNames');insertarOrdenado(wbO,dnO,ORDEN_WB)}
   const n=O.wb.importNode(d,true);n.setAttribute('localSheetId',String(ho.i));dnO.appendChild(n)});
  if(dnO&&!hijos(dnO,'definedName').length)wbO.removeChild(dnO);
- zO.file('xl/workbook.xml',S.serializeToString(O.wb));
+ zO.file('xl/workbook.xml',S.serializeToString(O.wb),{createFolders:false});
+ // Excel de escritorio no abre el archivo si el ZIP trae entradas de carpeta ("xl/"): se quitan
+ Object.keys(zO.files).forEach(n=>{if(zO.files[n].dir)delete zO.files[n]});
  return await zO.generateAsync({type:'blob',mimeType:MIME_XLSX,compression:'DEFLATE'});
 }
 
@@ -681,7 +683,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v45';
+const VERSION='v46';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
