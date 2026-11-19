@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v50</title>
+<title>Metrología · Intelmedica v51</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -96,7 +96,10 @@ const ARCHIVOS={
  mon:{nombre:'F-34-P-SC02 PLANTILLA MONITOR MULTIPARAMETRO V3.xlsx',busca:'PLANTILLA MONITOR MULTIPARAMETRO',hoja:'MONITOR',lab:'Laboratorio de Metrología de INTELMEDICA CORP ',
   celdas:{nombre:'B14',contacto:'G14',direccion:'B16',telefono:'G16',lugar:'H34',metrologo:'B168',recepcion:'B189',fecha:'F189',certificado:'J189',tIni:'B193',tFin:'E193',hIni:'B195',hFin:'E195',equipo:'B199',serie:'F199',marca:'B201',activo:'F201',modelo:'B203',ubicacion:'F203'},
   extra:[{k:'ibp',l:'Presión invasiva (IBP) *',opts:['NO TIENE','CANAL 1','CANAL 1 Y 2']}]},
- vent:{nombre:'F-48-P-SC02 PLANTILLA VENTILADOR - MAQ. ANESTESIA V3.xlsx',busca:'PLANTILLA VENTILADOR',hoja:'VENTILADOR',lab:'Laboratorio de Metrología de\nINTELMEDICA CORP ',
+ vent:{nombre:'F-48-P-SC02 PLANTILLA VENTILADOR - MAQ. ANESTESIA V3.xlsx',busca:'PLANTILLA VENTILADOR',hoja:'VENTILADOR',
+  // v51: la plantilla trae área de impresión A1:J208, que incluye la toma de datos (desde la fila 140) y las columnas I:J vacías del
+  // certificado; por eso el certificado salía corrido a la izquierda. Se imprime solo el certificado: A1:H139 (hasta «FIN DE CERTIFICADO»).
+  area:'$A$1:$H$139',lab:'Laboratorio de Metrología de\nINTELMEDICA CORP ',
   celdas:{nombre:'B15',contacto:'G15',direccion:'B17',telefono:'G17',lugar:'G35',metrologo:'B125',recepcion:'B148',fecha:'F148',certificado:'I148',tIni:'B152',tFin:'E152',hIni:'B154',hFin:'E154',equipo:'B158',serie:'F158',marca:'B160',activo:'F160',modelo:'B162',ubicacion:'F162'}}
 };
 // Puntos de medición: cada punto tiene su valor programado/nominal (prog) y sus lecturas (lec).
@@ -454,7 +457,7 @@ async function generarEq(q,est){
   if(!r.ok)throw new Error('No se pudo exportar a Excel (HTTP '+r.status+')');
   const ex=await driveList(`'${dq(cAnio)}' in parents and name='${dq(nombre+'.xlsx')}' and trashed=false`);
   let blob=await r.blob();
-  try{blob=await arreglarImpresion(blob,tpl)}catch(e){console.warn('No se pudo copiar la configuración de impresión',e)}
+  try{blob=await arreglarImpresion(blob,tpl,{[hoja]:ARCHIVOS[t.archivo].area})}catch(e){console.warn('No se pudo copiar la configuración de impresión',e)}
   const fx=await subir(blob,{name:nombre+'.xlsx',parents:[cAnio]},MIME_XLSX,ex[0]?.id);
   q.hecho=`https://drive.google.com/file/d/${fx.id}/view`;q.err='';q.cel='';q.archivo=nombre+'.xlsx';guardar();
   idbPut(q.id,{name:nombre+'.xlsx',blob}).catch(()=>{});
@@ -534,7 +537,7 @@ function copiarAltos(dt,dO){
  altos.forEach((h,i)=>{if(filasO.has(i))return;const n=dO.createElementNS(NS_M,'row');n.setAttribute('r',String(i));poner(n,h);
   const sig=hijos(sdO,'row').find(x=>+x.getAttribute('r')>i);sdO.insertBefore(n,sig||null)})}
 
-async function arreglarImpresion(outBlob,tplBlob){
+async function arreglarImpresion(outBlob,tplBlob,areas){
  const JSZip=await cargarJSZip(),zO=await JSZip.loadAsync(outBlob),zT=await JSZip.loadAsync(tplBlob),P=new DOMParser(),S=new XMLSerializer();
  const O=await hojasDe(zO),Tp=await hojasDe(zT);
  const ctO=P.parseFromString(await zO.file('[Content_Types].xml').async('string'),'application/xml'),ctT=P.parseFromString(await zT.file('[Content_Types].xml').async('string'),'application/xml'),copiadas={};
@@ -568,7 +571,9 @@ async function arreglarImpresion(outBlob,tplBlob){
  if(dnT)hijos(dnT,'definedName').filter(d=>/^_xlnm\.(Print_Area|Print_Titles)$/.test(d.getAttribute('name'))).forEach(d=>{
   const ht=Tp.H[+d.getAttribute('localSheetId')],ho=ht&&O.H.find(h=>h.nombre===ht.nombre);if(!ho)return;
   if(!dnO){dnO=O.wb.createElementNS(NS_M,'definedNames');insertarOrdenado(wbO,dnO,ORDEN_WB)}
-  const n=O.wb.importNode(d,true);n.setAttribute('localSheetId',String(ho.i));dnO.appendChild(n)});
+  const n=O.wb.importNode(d,true);n.setAttribute('localSheetId',String(ho.i));
+  const a=areas&&areas[ho.nombre];if(a&&n.getAttribute('name')==='_xlnm.Print_Area')n.textContent=n.textContent.replace(/![^!]*$/,'!'+a);
+  dnO.appendChild(n)});
  if(dnO&&!hijos(dnO,'definedName').length)wbO.removeChild(dnO);
  zO.file('xl/workbook.xml',S.serializeToString(O.wb),{createFolders:false});
  // Excel de escritorio no abre el archivo si el ZIP trae entradas de carpeta ("xl/"): se quitan
@@ -721,7 +726,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v50';
+const VERSION='v51';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
