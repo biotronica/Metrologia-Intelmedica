@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v49</title>
+<title>Metrología · Intelmedica v50</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -552,6 +552,10 @@ async function arreglarImpresion(outBlob,tplBlob){
    const t=hijos(wt,nom)[0];if(!t)continue;if(nom==='headerFooter'&&/&G/.test(t.textContent))continue;
    const n=dO.importNode(t,true);if(nom==='pageSetup'){n.removeAttributeNS(NS_R,'id');[...n.attributes].filter(a=>a.localName==='id'&&a.prefix).forEach(a=>n.removeAttributeNode(a))}
    insertarOrdenado(wo,n,ORDEN_WS)}
+  // v50: impresión centrada horizontalmente en la hoja (márgenes izquierdo y derecho iguales, mismo ancho útil → misma escala)
+  try{let po=hijos(wo,'printOptions')[0];if(!po){po=dO.createElementNS(NS_M,'printOptions');insertarOrdenado(wo,po,ORDEN_WS)}po.setAttribute('horizontalCentered','1');
+   const pm=hijos(wo,'pageMargins')[0];if(pm){const l=parseFloat(pm.getAttribute('left')),r=parseFloat(pm.getAttribute('right'));if(l>=0&&r>=0){const m=String(Math.round((l+r)/2*1e6)/1e6);pm.setAttribute('left',m);pm.setAttribute('right',m)}}
+  }catch(e){console.warn('No se pudo centrar la impresión',e)}
   try{copiarAltos(dt,dO)}catch(e){console.warn('No se pudo copiar el alto de filas',e)}
   try{await copiarDibujos(zO,zT,ht,ho,dO,ctO,ctT,copiadas)}catch(e){console.warn('No se pudo copiar el logo',e)}
   zO.file(ho.ruta,S.serializeToString(dO),{createFolders:false})}
@@ -717,7 +721,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v49';
+const VERSION='v50';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
