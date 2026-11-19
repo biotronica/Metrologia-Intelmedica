@@ -1,7 +1,21 @@
 <!DOCTYPE html>
+<!-- =====================================================================
+     METROLOGÍA INTELMEDICA (certificados de calibración)
+     Este archivo va SOLO en github.com/biotronica/Metrologia-Intelmedica
+     (no en plataforma-biomedica ni en Reportes-biomedicos)
+     ===================================================================== -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<script>
+/* Si este archivo se sube al repositorio equivocado, avisa en grande */
+(function(){var h=location.hostname,p=location.pathname.toLowerCase();
+ if(/github\.io$/.test(h)&&p.indexOf('/metrologia-intelmedica')!==0){
+  document.addEventListener('DOMContentLoaded',function(){var d=document.createElement('div');
+   d.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#b71c1c;color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font:600 20px/1.4 system-ui,sans-serif';
+   d.innerHTML='⚠️ ARCHIVO EN EL LUGAR EQUIVOCADO<br><br>Este index.html es de <u>METROLOGÍA</u>, pero se subió a<br>'+location.pathname.split('/')[1]+'<br><br>Vuelva a subir allí los archivos correctos de esa aplicación.';
+   document.body.appendChild(d)})}})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <title>Metrología · Intelmedica v53</title>
 <link rel="manifest" href="manifest.json">
@@ -737,7 +751,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v53';
+const VERSION='v54';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
