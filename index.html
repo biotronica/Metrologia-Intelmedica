@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v51</title>
+<title>Metrología · Intelmedica v52</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -392,12 +392,12 @@ async function generar(q,est){
  let wl=null;try{wl=await navigator.wakeLock?.request('screen')}catch(e){}   // que el celular no se bloquee mientras genera
  OCUP++;try{return await generarEq(q,est)}finally{OCUP--;marcaAct();try{wl&&wl.release()}catch(e){}}}
 // v48: si el nombre del archivo pasa de NOM_MAX letras se abrevia: primero palabras comunes del equipo y del cliente
-// (MÁQUINA→MAQ., HOSPITAL→HOSP., DEPARTAMENTAL→DPTAL., …, sin «DE/DEL/LA/Y»), y si aún es largo se quitan palabras
+// (MÁQUINA→MAQ., HOSPITAL→HPTAL., DEPARTAMENTAL→DEPTAL., …  — v52: abreviaturas pedidas por Ramiro; NUNCA en el certificado, sin «DE/DEL/LA/Y»), y si aún es largo se quitan palabras
 // del final del cliente (deja al menos 2) y luego del equipo. Certificado, marca y fecha no se tocan.
 const NOM_MAX=80;
 const ABREV={MAQUINA:'MAQ.',ANESTESIA:'ANEST.',MULTIPARAMETRO:'MULTIP.',MANOVACUOMETRO:'MANOVAC.',MANOMETRO:'MANOM.',VENTILADOR:'VENT.',FLUJOMETRO:'FLUJ.',
  DIGITAL:'DIG.',MECANICO:'MEC.',PORTATIL:'PORT.',NEONATAL:'NEON.',PEDIATRICO:'PED.',TRANSPORTE:'TRANSP.',PRESION:'PRES.',
- HOSPITAL:'HOSP.',DEPARTAMENTAL:'DPTAL.',UNIVERSITARIO:'UNIV.',UNIVERSITARIA:'UNIV.',UNIVERSIDAD:'UNIV.',FUNDACION:'FUND.',CLINICA:'CLIN.',CENTRO:'CTRO.',
+ HOSPITAL:'HPTAL.',DEPARTAMENTAL:'DEPTAL.',UNIVERSITARIO:'UNIV.',UNIVERSITARIA:'UNIV.',UNIVERSIDAD:'UNIV.',FUNDACION:'FUND.',CLINICA:'CLIN.',CENTRO:'CTRO.',
  MEDICO:'MED.',MEDICA:'MED.',MEDICOS:'MED.',INSTITUTO:'INST.',SOCIEDAD:'SOC.',ASOCIACION:'ASOC.',EMPRESA:'EMP.',SOCIAL:'SOC.',
  SERVICIOS:'SERV.',SERVICIO:'SERV.',INTERNACIONAL:'INTL.',NACIONAL:'NAL.',LABORATORIO:'LAB.',ODONTOLOGICA:'ODONT.',ODONTOLOGIA:'ODONT.',
  ESPECIALIZADA:'ESPEC.',ESPECIALIZADO:'ESPEC.',INTEGRAL:'INTEG.',COOPERATIVA:'COOP.',CORPORACION:'CORP.',ADMINISTRADORA:'ADMIN.',
@@ -726,7 +726,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v51';
+const VERSION='v52';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
