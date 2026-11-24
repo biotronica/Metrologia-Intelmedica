@@ -17,7 +17,7 @@
    document.body.appendChild(d)})}})();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v58</title>
+<title>Metrología · Intelmedica v59</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -185,13 +185,17 @@ const txSi=i=>q=>q['tx'+i]==='Sí';
 const hojasEco=q=>TX_ECO.filter((x,i)=>txSi(i)(q)).map(x=>x[0]);
 TX_ECO.forEach(([h,n],i)=>ARCHIVOS.eco.extra.push({k:'tx'+i,l:`Transductor ${n} *`,opts:['Sí','No']},
  {k:'txm'+i,l:`${n}: modelo del transductor *`,cell:h+'!B164',texto:true,cond:txSi(i)},{k:'txs'+i,l:`${n}: serie del transductor`,cell:h+'!F164',texto:true,opc:true,cond:txSi(i)}));
-const ecoSecs=()=>TX_ECO.flatMap(([h,n],i)=>{const c=h+'!',P=(id,l,nom,cs,f)=>pto('e'+i+id,l,nom,cs.map(x=>c+x+f)),co={cond:txSi(i)};return[
- secC(`${n} · distancia (cm)`,M4,[P('dh','Horiz. 2',2,BCDE,175),P('dv1','Vert. 1',1,BCDE,180),P('dv5','Vert. 5',5,BCDE,181)],co),
- secC(`${n} · zona muerta (mm)`,M4,[2,5,10].map((v,j)=>P('zm'+v,String(v),v,['H','I','J','K'],175+j)),co),
- secC(`${n} · resolución axial-lateral (mm)`,M4,[1,2,3,5].map((v,j)=>P('ra'+v,String(v),v,['H','I','J','K'],181+j)),co),
- secC(`${n} · cilindros anecoides (mm)`,M4,[4,8,10].map((v,j)=>P('ci'+v,String(v),v,['N','O','P','Q'],176+j)),co),
- secC(`${n} · objeto huevo 3D (cm) · opcional`,M4,[5,7].map((v,j)=>({...P('hu'+v,String(v),v,['N','O','P','Q'],182+j),opcional:true})),co),
- secC(`${n} · volumen (cm³) · opcional`,M4,[{...P('vol','91,6',91.6,['N','O','P','Q'],186),opcional:true}],co)]});
+const ecoSecs=()=>TX_ECO.flatMap(([h,n],i)=>{const c=h+'!',P=(id,l,nom,cs,f,cf,o={})=>({...pto('e'+i+id,l,nom,cs.map(x=>c+x+f)),certF:cf,...o}),
+ S=(k,tit,pts,op)=>secC(`${n} · ${tit}${op?' · opcional':''}`,M4,pts.map(p=>({...p,sec:'e'+i+k})),{cond:txSi(i),nr:true,id:'e'+i+k});return[
+ S('dist','distancia (cm)',[P('dh','Horiz. 2',2,BCDE,175,70),P('dv1','Vert. 1',1,BCDE,180,74),P('dv5','Vert. 5',5,BCDE,181,75)]),
+ S('zm','zona muerta (mm)',[2,5,10].map((v,j)=>P('zm'+v,String(v),v,['H','I','J','K'],175+j,79+j))),
+ S('ra','resolución axial-lateral (mm)',[1,2,3,5].map((v,j)=>P('ra'+v,String(v),v,['H','I','J','K'],181+j,85+j))),
+ S('ci','cilindros anecoides (mm)',[4,8,10].map((v,j)=>P('ci'+v,String(v),v,['N','O','P','Q'],176+j,92+j))),
+ S('hu','objeto huevo 3D (cm)',[5,7].map((v,j)=>P('hu'+v,String(v),v,['N','O','P','Q'],182+j,98+j,{opcional:true})),1),
+ S('vol','volumen (cm³)',[P('vol','91,6',91.6,['N','O','P','Q'],186,102,{opcional:true})],1)]});
+// v59: NR (No Registra) por prueba del ecógrafo; en el certificado esa fila queda en blanco.
+const nrSec=(q,sc)=>!!(sc.nr&&q&&q.nr&&q.nr[sc.id]),nrP=(q,p)=>!!(p.sec&&q.nr&&q.nr[p.sec]);
+const nLec=(q,p)=>p.lec.filter(l=>val(q,l.cell)!==null).length;
 const TIPOS={
  flujo:{archivo:'flujo',tipo:'Flujómetro',equipo:'FLUJOMETRO',check:'prog',secciones:[{titulo:'Lecturas del patrón (L/min)',render:'cols',filas:['M1','M2','M3','M4','M5'],
   puntos:['B','C','D'].map((c,j)=>({id:'n'+c,label:'Valor nominal',prog:{cell:c+'149',def:[2,10,15][j]},lec:[150,151,152,153,154].map(f=>({cell:c+f}))}))}]},
@@ -220,7 +224,7 @@ const TIPOS={
  tens:{archivo:'tens',tipo:'Electroestimulador / TENS',equipo:'ELECTROESTIMULADOR',check:'prog',secciones:[
   secC('Canal 1 · frecuencia (Hz)',M4,[2,20,60,100,150].map((n,i)=>pto('t1f'+n,String(n),n,hFila(CDEF,139+i)))),
   secC('Canal 2 · frecuencia (Hz)',M4,[2,20,60,100,150].map((n,i)=>pto('t2f'+n,String(n),n,hFila(CDEF,146+i))),{cond:canal2})]},
- eco:{archivo:'eco',tipo:'Ecógrafo',equipo:'ECÓGRAFO',check:'prog',hojas:hojasEco,valida:q=>hojasEco(q).length?[]:['al menos un transductor (Sí)'],secciones:ecoSecs()},
+ eco:{archivo:'eco',tipo:'Ecógrafo',equipo:'ECÓGRAFO',check:'prog',minLec:2,hojas:hojasEco,valida:q=>hojasEco(q).length?[]:['al menos un transductor (Sí)'],secciones:ecoSecs()},
  esfi:{archivo:'esfi',tipo:'Esfigmomanómetro',equipo:'ESFIGMOMANOMETRO',certHoja:'CERTIFICADO ESFIGMOMANOMETRO',check:'prog',secciones:[{titulo:'Error de indicación (mmHg)',render:'rows',hdr:['Punto','Ref. (mmHg)'],cols:['1ª ↑','1ª ↓','2ª ↑','2ª ↓'],
   puntos:[0,50,100,150,200,250,300].map((n,i)=>pto('ef'+n,String(i+1),n,hFila(BCDE,42+i)))}]},
  espiro:{archivo:'espiro',tipo:'Espirómetro',equipo:'ESPIROMETRO',check:'prog',secciones:[secC('Volumen (L)',M4,[pto('evE','Espiración',3,hFila(CDEF,135)),pto('evI','Inspiración',3,hFila(CDEF,136))])]},
@@ -332,7 +336,7 @@ const T=q=>TIPOS[(q&&q.tpl)||ST.tpl]||TIPOS.flujo;
 const A=q=>ARCHIVOS[T(q).archivo];
 // Secciones con cond (p. ej. IBP del monitor) solo cuentan si aplican al equipo.
 const SECC=(t,q)=>t.secciones.filter(sc=>!sc.cond||!q||sc.cond(q));
-const PUNTOS=(t,q)=>SECC(t,q).flatMap(sc=>sc.puntos);
+const PUNTOS=(t,q)=>SECC(t,q).filter(sc=>!nrSec(q,sc)).flatMap(sc=>sc.puntos);
 function eqNuevo(prev){const t=T(),v={},mismo=prev&&(prev.tpl||ST.tpl)===ST.tpl;PUNTOS(t).forEach(p=>{v[p.prog.cell]=(mismo?prev?.v?.[p.prog.cell]:null)??String(p.prog.def??'')});
  const q={id:uid(),tpl:ST.tpl,certificado:'',acred:prev?.acred||'',equipo:t.equipo,marca:'',modelo:'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:prev?.tIni||'',tFin:prev?.tFin||'',hIni:prev?.hIni||'',hFin:prev?.hFin||'',v,hecho:'',err:''};
  (A().extra||[]).forEach(x=>q[x.k]=(mismo&&prev?.[x.k])||x.def||'');if(!mismo)q.ubicacion=prev?.ubicacion||'';q.mpa=T(q)===TIPOS.mvac&&(q.unidades==='kPa'||q.unidades==='MPa');return q}
@@ -364,7 +368,9 @@ const nomTxt=(q,p)=>{const n=p.prog.calc?p.prog.calc(q):p.prog.def;return n===nu
 // Puntos obligatorios: con valor programado numérico. En ventiladores, los parámetros NA/NI son
 // opcionales, pero si se llena una lectura hay que llenar las ocho.
 const obligatorio=(t,q,p)=>(!p.opcional&&(t.check==='prog'||val(q,p.prog.cell)!==null))||p.lec.some(l=>String(q.v[l.cell]??'').trim()!=='');   // v58: opcional (huevo 3D, volumen) solo si se empezó
-const faltanLec=(q)=>{const t=T(q);return PUNTOS(t,q).filter(p=>obligatorio(t,q,p)).reduce((a,p)=>a+p.lec.filter(l=>val(q,l.cell)===null).length,0)};
+// v59: ecógrafo (minLec): una prueba con menos de 2 medidas no se acepta (se completa o se marca NR); con 2 o 3 se pregunta al cerrar.
+const pocos=q=>{const t=T(q);return t.minLec?PUNTOS(t,q).filter(p=>obligatorio(t,q,p)&&nLec(q,p)<t.minLec):[]};
+const faltanLec=(q)=>{const t=T(q),pc=pocos(q);return PUNTOS(t,q).filter(p=>obligatorio(t,q,p)&&!pc.includes(p)).reduce((a,p)=>a+p.lec.filter(l=>val(q,l.cell)===null).length,0)};
 const faltaProg=q=>{const t=T(q);return t.check==='prog'&&PUNTOS(t,q).some(p=>!p.prog.fijo&&val(q,p.prog.cell)===null)};
 // Manovacuómetro: la capacidad máxima es de vacío, se escribe con "-" delante automáticamente.
 const capNeg=(x,q)=>T(q)===TIPOS.mvac&&x.k==='capacidad';
@@ -392,10 +398,10 @@ const vacios=q=>{const t=T(q),L=[];
  ['tIni','tFin','hIni','hFin'].forEach(k=>{if(num(q[k])===null)L.push(k)});
  (A(q).extra||[]).forEach(x=>{if(x.num&&(!x.cond||x.cond(q))&&num(q[x.k])===null)L.push(x.k)});
  if(t.check==='prog')PUNTOS(t,q).forEach(p=>{if(!p.prog.fijo&&val(q,p.prog.cell)===null)L.push(p.prog.cell)});
- PUNTOS(t,q).filter(p=>obligatorio(t,q,p)).forEach(p=>p.lec.forEach(l=>{if(val(q,l.cell)===null)L.push(l.cell)}));
+ const pc=pocos(q);PUNTOS(t,q).filter(p=>obligatorio(t,q,p)&&!pc.includes(p)).forEach(p=>p.lec.forEach(l=>{if(val(q,l.cell)===null)L.push(l.cell)}));
  return L};
 const vaciosOk=q=>{const v=vacios(q);return!v.length||q.vaciosOk===v.join(';')};
-const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(!certAnioOk(q)?`año del certificado (después del guion debe ir -${aa()})`:q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q,vaciosOk(q)),...(T(q).valida?T(q).valida(q):[]),!vaciosOk(q)&&faltaProg(q)&&'valores nominales',!vaciosOk(q)&&(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
+const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(!certAnioOk(q)?`año del certificado (después del guion debe ir -${aa()})`:q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q,vaciosOk(q)),...(T(q).valida?T(q).valida(q):[]),(n=>n&&`${n} prueba(s) con menos de ${T(q).minLec} medidas (complete o marque NR)`)(pocos(q).length),!vaciosOk(q)&&faltaProg(q)&&'valores nominales',!vaciosOk(q)&&(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
 // Lo que falta SIN contar los campos vacíos de la toma de datos (para saber si solo faltan esos).
 const faltanFijos=q=>{const o=q.vaciosOk;q.vaciosOk=vacios(q).join(';');const f=faltan(q);q.vaciosOk=o;return f};
 const completo=q=>!faltan(q).length;
@@ -569,7 +575,9 @@ async function generarEq(q,est){
   ['tIni','tFin','hIni','hFin'].forEach(k=>{const n=num(q[k]);put(C[k],n===null?'':n)});
   put(C.equipo,txt(q.equipo));put(C.serie,txt(q.serie));put(C.marca,txt(q.marca));put(C.activo,txt(q.activo));put(C.modelo,txt(q.modelo));put(C.ubicacion,txt(q.ubicacion));
   (a.extra||[]).filter(x=>x.cell&&(!x.cond||x.cond(q))).forEach(x=>put(x.cell,x.texto?txt(q[x.k]):x.num?(capNeg(x,q)&&num(q[x.k])!==null?-Math.abs(num(q[x.k])):num(q[x.k])):String(q[x.k]||'')));
-  PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();if(!p.prog.fijo)put(p.prog.cell,num(pv)!==null?num(pv):(MAY(pv)||(t.check==='prog'?'':'NI')));p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,n===null?'':n)})});
+  PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();if(!p.prog.fijo)put(p.prog.cell,num(pv)!==null?num(pv):(MAY(pv)||(t.check==='prog'?'':'NI')));const nr=nrP(q,p),emp=t.minLec&&nLec(q,p)>0;p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,nr?'NR':n===null?(emp?'NR':''):n)});   // v59: medida que falta → NR (vacía la plantilla la toma como 0)
+   // v59: ecógrafo: prueba NR o sin medidas → la fila del certificado queda en blanco (si no, saldría #DIV/0!)
+   if(p.certF&&(nr||!nLec(q,p))){const h=p.lec[0].cell.split('!')[0];if(HJ.includes(h))['C','D','E','F','G'].forEach(c=>put(`${h}!${c}${p.certF}`,''))}});
   est('Escribiendo los datos…');
   await api(SH+tmp.id+'/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data:d})});
   // Manómetros: se deja visible la hoja del certificado que corresponde al tipo elegido.
@@ -861,7 +869,12 @@ const nombreVacio=(q,c)=>({tIni:'temp. inicial',tFin:'temp. final',hIni:'HR inic
 // Pregunta por los vacíos de un equipo. Devuelve true si se pueden ignorar (o no hay), false si va a llenarlos.
 async function preguntarVacios(q){
  const v=vacios(q);if(!v.length||vaciosOk(q))return true;
- const lec=v.filter(c=>/^[A-Z]+\d+$/.test(c)).length,otros=v.filter(c=>!/^[A-Z]+\d+$/.test(c)).map(c=>nombreVacio(q,c));
+ const esC=c=>/^([^!]+!)?[A-Z]+\d+$/.test(c),lec=v.filter(esC).length,otros=v.filter(c=>!esC(c)).map(c=>nombreVacio(q,c));
+ // v59: ecógrafo: pruebas con 2 o 3 medidas → «¿No se van a tomar más datos?»
+ if(T(q).minLec){const t=T(q),inc=SECC(t,q).filter(sc=>!nrSec(q,sc)).flatMap(sc=>sc.puntos.filter(p=>obligatorio(t,q,p)&&nLec(q,p)<p.lec.length).map(p=>`${sc.titulo} · ${p.label}: ${nLec(q,p)} de ${p.lec.length} medidas`));
+  const r=await dialogo('¿No se van a tomar más datos?',`<p><b>${esc(t.tipo)} ${esc(cert(q)||'')}</b>${inc.length?' tiene pruebas incompletas:':''}</p>${inc.length?`<ul class="small" style="margin:6px 0 8px;padding-left:18px">${inc.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${otros.length?`<p class="small">Vacíos también: ${esc(otros.join(', '))}.</p>`:''}<p class="muted small">Si no se toman más, el certificado se hace con las medidas que hay.</p>`,
+   [{t:'No, cerrar con estos datos',v:true,cls:'navy'},{t:'✏️ Tomar más datos',v:false,cls:'ghost'}]);
+  if(r){q.vaciosOk=v.join(';');q.hecho='';guardar()}return r}
  const r=await dialogo('Campos vacíos en la toma de datos',`<p><b>${esc(T(q).tipo)} ${esc(cert(q)||'')}</b> tiene <b>${v.length}</b> campo(s) vacío(s)${lec?`: ${lec} lectura(s)`:''}${otros.length?`${lec?' y':':'} ${esc(otros.join(', '))}`:''}.</p><p class="muted small">Si elige llenarlos, se marcan en amarillo y el cursor va al primero.</p>`,
   [{t:'✏️ Llenarlos',v:false,cls:'navy'},{t:'No tenerlos en cuenta en el certificado',v:true,cls:'ghost'}]);
  if(r){q.vaciosOk=v.join(';');q.hecho='';guardar()}
@@ -874,7 +887,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v58';
+const VERSION='v59';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -922,7 +935,8 @@ const avisoLec=q=>{const n=nFuera(q);if(!n)return'';const c=cuentaFuera(q);retur
 const inC=(q,p,l)=>`<input data-cell="${l.cell}" data-p="${p.id}" ${lecKPa(q)?'data-kpa="1" ':''}value="${esc(lecKPa(q)?fmtMPa(q.v[l.cell]):(q.v[l.cell]??''))}" inputmode="decimal" placeholder="${lecKPa(q)?'kPa':'—'}" class="${claseFuera(q,p,l)}">`;
 const inP=(q,p)=>p.prog.fijo?`<span class="st" style="font-weight:800;color:var(--navy)">${esc(nomTxt(q,p))}</span>`:`<input data-cell="${p.prog.cell}" data-p="${p.id}" data-prog="1" value="${esc(q.v[p.prog.cell]??'')}" ${T(q).check==='prog'?'inputmode="decimal"':''}>`;
 function seccionHtml(q,t,sc){
- if(sc.render==='cols'){const P=sc.puntos;return`<div class="card"><div class="card-title">${esc(sc.titulo)}</div><div class="lec" style="grid-template-columns:56px repeat(${P.length},minmax(0,1fr))"><span></span>${P.map(p=>`<span class="h">${esc(p.label)}</span>`).join('')}
+ if(sc.nr&&nrSec(q,sc))return`<div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${esc(sc.titulo)}</span><button class="btn sm ghost" data-a="nrSec" data-id="${sc.id}">Quitar NR</button></div><p style="margin:4px 0 0;font-weight:800;color:var(--navy)">NR · No Registra</p><p class="muted small" style="margin:4px 0 0">En el certificado esta prueba queda en blanco.</p></div>`;
+ if(sc.render==='cols'){const P=sc.puntos;return`<div class="card"><div class="card-title"${sc.nr?' style="display:flex;justify-content:space-between;align-items:center;gap:8px"':''}>${sc.nr?`<span>${esc(sc.titulo)}</span><button class="btn sm ghost" data-a="nrSec" data-id="${sc.id}" title="No Registra">NR</button>`:esc(sc.titulo)}</div><div class="lec" style="grid-template-columns:56px repeat(${P.length},minmax(0,1fr))"><span></span>${P.map(p=>`<span class="h">${esc(p.label)}</span>`).join('')}
   ${sc.sinNom?'':`<b>Nominal</b>${P.map(p=>inP(q,p)).join('')}`}
   ${sc.filas.map((f,i)=>`<b>${f}</b>`+P.map(p=>inC(q,p,p.lec[i])).join('')).join('')}
   <b>Prom.</b>${P.map(p=>`<span class="st" id="sp_${p.id}">${statsTxt(q,p).p}</span>`).join('')}
@@ -1097,6 +1111,7 @@ const ACT={
  cerrarEditor:async()=>{const q=ST.eqs.find(x=>x.id===ST.editando);
   if(q&&!faltanFijos(q).length&&vacios(q).length&&!vaciosOk(q)){if(!(await preguntarVacios(q))){ST.marcarVacios=q.id;marcarVacios(q);const c=vacios(q)[0],el=c&&($(`[data-cell="${c}"]`)||$(`[data-q="${c}"]`));if(el){el.scrollIntoView({block:'center'});el.focus()}return}}
   ST.editando='';ST.marcarVacios='';guardar();render();scrollTo(0,0)},
+ nrSec:id=>{const q=ST.eqs.find(x=>x.id===ST.editando);if(!q)return;q.nr=q.nr||{};if(q.nr[id])delete q.nr[id];else q.nr[id]=true;q.vaciosOk='';q.hecho='';guardar();const y=scrollY;render();scrollTo(0,y)},   // v59
  quitar:()=>{if(!confirm('¿Quitar este equipo de la toma de datos?'))return;ST.eqs=ST.eqs.filter(q=>q.id!==ST.editando);ST.editando='';guardar();render()},
  usarCarpeta:()=>run(async()=>{const u=$('#destUrl').value.trim();const id=(/folders\/([^/?#]+)/.exec(u)||[])[1]||(/[?&]id=([^&#]+)/.exec(u)||[])[1]||u;if(!id)return;const f=await driveMeta(id);if(f.mimeType!==FOLDER)throw new Error('El enlace no es de una carpeta');ST.carpeta={id:f.id,name:f.name,cliente:norm(ST.cli.nombre)};guardar();render();toast('Carpeta seleccionada')}),
  vacios1:async id=>{const q=ST.eqs.find(x=>x.id===id);if(await preguntarVacios(q))render();else irAVacios(q)},
