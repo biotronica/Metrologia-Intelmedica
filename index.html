@@ -17,7 +17,7 @@
    document.body.appendChild(d)})}})();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v53</title>
+<title>Metrología · Intelmedica v56</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -114,7 +114,34 @@ const ARCHIVOS={
   // v51: la plantilla trae área de impresión A1:J208, que incluye la toma de datos (desde la fila 140) y las columnas I:J vacías del
   // certificado; por eso el certificado salía corrido a la izquierda. Se imprime solo el certificado: A1:H139 (hasta «FIN DE CERTIFICADO»).
   area:'$A$1:$H$139',lab:'Laboratorio de Metrología de\nINTELMEDICA CORP ',
-  celdas:{nombre:'B15',contacto:'G15',direccion:'B17',telefono:'G17',lugar:'G35',metrologo:'B125',recepcion:'B148',fecha:'F148',certificado:'I148',tIni:'B152',tFin:'E152',hIni:'B154',hFin:'E154',equipo:'B158',serie:'F158',marca:'B160',activo:'F160',modelo:'B162',ubicacion:'F162'}}
+  celdas:{nombre:'B15',contacto:'G15',direccion:'B17',telefono:'G17',lugar:'G35',metrologo:'B125',recepcion:'B148',fecha:'F148',certificado:'I148',tIni:'B152',tFin:'E152',hIni:'B154',hFin:'E154',equipo:'B158',serie:'F158',marca:'B160',activo:'F160',modelo:'B162',ubicacion:'F162'}},
+ // v56: plantillas nuevas (PLANTILLAS METROLOGIA › Plantillas en blanco; esfigmomanómetro de Plantillas Acreditado).
+ // «carpeta»: si en Drive hay varias copias con el mismo nombre, se usa la de esa carpeta.
+ pulsi:{nombre:"F-38-P-SC02 PLANTILLA PULSIOXIMETRO V4.xlsx",busca:"PLANTILLA PULSIOXIMETRO",carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:"PULSIOXIMETRO",lab:"Laboratorio de Metrología de INTELMEDICA CORP ",
+  celdas:{nombre:'B14',contacto:'G14',direccion:'B16',telefono:'G16',lugar:'H34',metrologo:'B96',recepcion:'B117',fecha:'F117',certificado:'J117',tIni:'B121',tFin:'E121',hIni:'B123',hFin:'E123',equipo:'B127',serie:'G127',marca:'B129',activo:'G129',modelo:'B131',ubicacion:'G131'}},
+ nebu:{nombre:"F-36-P-SC02 PLANTILLA NEBULIZADOR V3.xlsx",busca:"PLANTILLA NEBULIZADOR",carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:"PLANTILLA",lab:"Laboratorio de Metrología de\nINTELMEDICA CORP ",
+  celdas:{nombre:'B15',contacto:'G15',direccion:'B17',telefono:'G17',lugar:'H35',metrologo:'B90',recepcion:'B113',fecha:'F113',certificado:'I113',tIni:'B117',tFin:'E117',hIni:'B119',hFin:'E119',equipo:'B123',serie:'F123',marca:'B125',activo:'F125',modelo:'B127',ubicacion:'F127'}},
+ holter:{nombre:"F-25-P-SC02 PLANTILLA HOLTER V3.xlsx",busca:"PLANTILLA HOLTER",carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:"HOLTER",lab:"Laboratorio de Metrología de INTELMEDICA CORP ",
+  celdas:{nombre:'B15',contacto:'G15',direccion:'B17',telefono:'G17',lugar:'H34',metrologo:'B92',recepcion:'B113',fecha:'F113',certificado:'J113',tIni:'B117',tFin:'E117',hIni:'B119',hFin:'E119',equipo:'B123',serie:'G123',marca:'B125',activo:'G125',modelo:'B127',ubicacion:'G127'}},
+ tens:{nombre:"F-19-P-SC02 PLANTILLA ELECTROESTIMULADOR - TENS (Osciloscipio) V3.xlsx",busca:"TENS (Osciloscipio)",carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:"TENS",lab:"Laboratorio de Metrología de\nINTELMEDICA CORP ",
+  celdas:{nombre:'B15',contacto:'G15',direccion:'B17',telefono:'G17',lugar:'H35',metrologo:'B99',recepcion:'B119',fecha:'F119',certificado:'I119',tIni:'B123',tFin:'E123',hIni:'B125',hFin:'E125',equipo:'B129',serie:'G129',marca:'B131',activo:'G131',modelo:'B133',ubicacion:'G133'},extra:[{k:'canales',l:'Canales del equipo *',opts:['1','2']}]},
+ ecg:{nombre:"F-18-P-SC02 PLANTILLA ELECTROCARDIOGRAFO V3.xlsx",busca:"PLANTILLA ELECTROCARDIOGRAFO",carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:"EKG",lab:"Laboratorio de Metrología de INTELMEDICA CORP ",
+  celdas:{nombre:'B14',contacto:'G14',direccion:'B16',telefono:'G16',lugar:'H34',metrologo:'B133',recepcion:'B154',fecha:'F154',certificado:'I154',tIni:'B158',tFin:'E158',hIni:'B160',hFin:'E160',equipo:'B164',serie:'F164',marca:'B166',activo:'F166',modelo:'B168',ubicacion:'F168'}},
+ desfi:{nombre:"F-14-P-SC02 PLANTILLA DESFIBRILADOR V3.xlsx",busca:"PLANTILLA DESFIBRILADOR",carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:"DESFIBRILADOR",lab:"Laboratorio de Metrología de \nINTELMEDICA CORP ",
+  celdas:{nombre:'B14',contacto:'G14',direccion:'B16',telefono:'G16',lugar:'H34',metrologo:'B161',recepcion:'B181',fecha:'F181',certificado:'I181',tIni:'B185',tFin:'E185',hIni:'B187',hFin:'E187',equipo:'B191',serie:'F191',marca:'B193',activo:'F193',modelo:'B195',ubicacion:'F195'},extra:[{k:'emax',l:'Energía máxima del desfibrilador (J) *',cell:'B202',opts:['360','200'],nom:true}]},
+ espiro:{nombre:"F-21-P-SC02 PLANTILLA ESPIROMETRO V2.xlsx",busca:"PLANTILLA ESPIROMETRO",carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:"ESPIROMETRO",lab:"Laboratorio de Metrología de\nINTELMEDICA CORP ",
+  celdas:{nombre:'B15',contacto:'G15',direccion:'B17',telefono:'G17',lugar:'G35',metrologo:'B91',recepcion:'B114',fecha:'F114',certificado:'H114',tIni:'B118',tFin:'E118',hIni:'B120',hFin:'E120',equipo:'B124',serie:'F124',marca:'B126',activo:'F126',modelo:'B128',ubicacion:'F128'}},
+ bisturi:{nombre:"F-17-P-SC02 PLANTILLA ELECTROBISTURI V3.xlsx",busca:"PLANTILLA ELECTROBISTURI",carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:"PLANTILLA",lab:"Laboratorio de Metrología de INTELMEDICA CORP ",
+  celdas:{nombre:'B14',contacto:'G14',direccion:'B16',telefono:'G16',lugar:'H34',metrologo:'B133',recepcion:'B156',fecha:'F156',certificado:'J156',tIni:'B160',tFin:'E160',hIni:'B162',hFin:'E162',equipo:'B166',serie:'G166',marca:'B168',activo:'G168',modelo:'B170',ubicacion:'G170'},extra:[{k:'pCorte',l:'Potencia máx. corte puro (W) *',cell:'D179',num:true,nom:true},{k:'pBlend',l:'Potencia máx. blend (W) *',cell:'D192',num:true,nom:true},{k:'pCoag',l:'Potencia máx. coagulación (W) *',cell:'D205',num:true,nom:true},{k:'pBip',l:'Potencia máx. bipolar (W) *',cell:'D218',num:true,nom:true}]},
+ bomba:{nombre:"F-06-P-SC02 PLANTILLA BOMBA DE INFUSIÓN DOBLE CANAL V3.xlsx",busca:"PLANTILLA BOMBA DE INFUSI",carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:"BOMBA",lab:"Laboratorio de Metrología de INTELMEDICA CORP ",
+  celdas:{nombre:'B14',contacto:'I14',direccion:'B16',telefono:'I16',lugar:'K33',metrologo:'B120',recepcion:'D141',fecha:'H141',certificado:'M141',tIni:'D145',tFin:'G145',hIni:'D147',hFin:'G147',equipo:'D151',serie:'I151',marca:'D153',activo:'I153',modelo:'D155',ubicacion:'I155'},extra:[{k:'canales',l:'Canales de la bomba *',opts:['1','2']}]},
+ tensio:{nombre:"F-39-P-SC02 PLANTILLA TENSIOMETRO DIGITAL V4.xlsx",busca:"PLANTILLA TENSIOMETRO DIGITAL",carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:"TENSIOMENTRO DIGITAL",lab:"Laboratorio de Metrología de INTELMEDICA CORP ",
+  celdas:{nombre:'B14',contacto:'G14',direccion:'B16',telefono:'G16',lugar:'H34',metrologo:'B101',recepcion:'B123',fecha:'F123',certificado:'J123',tIni:'B127',tFin:'E127',hIni:'B129',hFin:'E129',equipo:'B133',serie:'G133',marca:'B135',activo:'G135',modelo:'B137',ubicacion:'G137'}},
+ incu:{nombre:"F-27-P-SC02 PLANTILLA INCUBADORA PEDIATRICA - CUNA CALOR RADIANTE V3.xlsx",busca:"PLANTILLA INCUBADORA",carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:"INCUBADORA",lab:"Laboratorio de Metrología de INTELMEDICA CORP ",
+  celdas:{nombre:'B14',contacto:'G14',direccion:'B16',telefono:'G16',lugar:'H34',metrologo:'B151',recepcion:'B172',fecha:'F172',certificado:'J172',tIni:'B176',tFin:'E176',hIni:'B178',hFin:'E178',equipo:'B182',serie:'F182',marca:'B184',activo:'F184',modelo:'B186',ubicacion:'F186'}},
+ esfi:{nombre:'F-20-P-SC02 PLANTILLA ESFIGMOMANOMETRO V6 REVISION MOD 20240809.xlsx',busca:'ESFIGMOMANOMETRO V6 REVISION',carpeta:'1tuTLzFia3lFGGFmyaD_Uyh4PMJARW7OW',hoja:'DATOS PRIMARIOS ESFIGMOMANOMETR',lab:"Laboratorio de Metrología de INTELMEDICA CORP ",
+  celdas:{recepcion:'A7',fecha:'A10',nombre:'A15',contacto:'C15',direccion:'E15',telefono:'G15',certificado:'I15',tIni:'B20',tFin:'E20',hIni:'B21',hFin:'E21',equipo:'B24',serie:'F24',marca:'B25',activo:'F25',modelo:'B26',ubicacion:'F26',metrologo:'A30',lugar:'A33'},extra:[{k:'division',l:'División de escala (mmHg) *',cell:'B27',num:true,def:'2'}]}
+
 };
 // Puntos de medición: cada punto tiene su valor programado/nominal (prog) y sus lecturas (lec).
 const filasMano=(fila0,pcts,defs)=>pcts.map((p,i)=>({id:'r'+(fila0+i),label:(p*100).toLocaleString('es-CO')+' %',prog:{cell:'B'+(fila0+i),def:defs[i]},lec:['C','D','E','F'].map(c=>({cell:c+(fila0+i)}))}));
@@ -128,6 +155,26 @@ const tieneIbp=(q,n)=>q.ibp==='CANAL 1 Y 2'||(n===1&&q.ibp==='CANAL 1');
 const bloqueMon=(n,f,noms)=>({titulo:`NIBP · F. cardiaca · F. respiratoria — punto ${n}`,render:'cols',filas:['M1','M2','M3','M4'],puntos:colMon(['B','C','D','E','F'],f,f+1,['Sist. (mmHg)','Diast. (mmHg)','PAM (mmHg)','FC (lpm)','FR (rpm)'],noms,'m')});
 const ibpMon=(n,f)=>[{titulo:`IBP canal ${n} — dinámica (mmHg)`,render:'cols',filas:['M1','M2','M3','M4'],cond:q=>tieneIbp(q,n),puntos:colMon(['B','C','D','E','F','G'],f,f+1,IBP_LBL,[70,40,120,80,190,120],'i')},
  {titulo:`IBP canal ${n} — estática (mmHg)`,render:'cols',filas:['M1','M2','M3','M4'],cond:q=>tieneIbp(q,n),puntos:colMon(['H','I','J'],f,f+1,['Estática','Estática','Estática'],[0,100,200],'i')}];
+
+/* ---- v56: ayudas para las plantillas nuevas ----
+   pto(id, rótulo, nominal, celdas de lectura):
+   nominal número → fijo (el de la plantilla, no se escribe); null → sin nominal (las lecturas se revisan entre sí);
+   función q=>número → fijo calculado (p. ej. desde la energía o potencia máxima); {cell,def} → editable (se escribe). */
+const vCol=(c,f,n)=>Array.from({length:n},(_,i)=>c+(f+i)),hFila=(cs,f)=>cs.map(c=>c+f),CDEF=['C','D','E','F'],BCDE=['B','C','D','E'],DEFG=['D','E','F','G'];
+const pto=(id,label,nom,lec,o={})=>({id,label,lec:lec.map(cell=>({cell})),ref:o.ref,
+ prog:nom&&typeof nom==='object'?{cell:nom.cell,def:nom.def??''}:{cell:'_'+id,def:typeof nom==='function'?'':nom,calc:typeof nom==='function'?nom:null,fijo:true}});
+const secC=(titulo,filas,puntos,o={})=>({titulo,render:'cols',filas,puntos,...o});
+const M4=['M1','M2','M3','M4'];
+const fcEcg=n=>1500/n;   // ECG a 25 mm/s: distancia esperada (mm) entre complejos para n lpm
+const eDesfi=(a,b)=>q=>String(q.emax)==='360'?a:b;
+const pBis=k=>q=>{const n=num(q[k]);return n===null?null:n},pBis2=k=>q=>{const n=num(q[k]);return n===null?null:n/2};
+const bisMod=(t,k,f,dos=true)=>[secC(`Monopolar 1 · ${t}`,M4,[pto(k+'1a','50 %',pBis2(k),vCol('B',f,4)),pto(k+'1b','100 %',pBis(k),vCol('C',f,4))]),
+ ...(dos?[secC(`Monopolar 2 · ${t}`,M4,[pto(k+'2a','50 %',pBis2(k),vCol('F',f,4)),pto(k+'2b','100 %',pBis(k),vCol('G',f,4))])]:[])];
+const bomba=(c,f0,cond)=>[[50,5],[100,10],[500,20]].map(([fl,vo],i)=>secC(`Canal ${c} · Prueba ${i+1}`,M4,[pto(`b${c}${i}f`,'Flujo (ml/h)',fl,hFila(DEFG,f0+5*i)),pto(`b${c}${i}v`,'Volumen (ml)',vo,hFila(DEFG,f0+5*i+1))],cond?{cond}:{}));
+const MIN_INC=['30′','32′','34′','36′','38′','40′','42′','44′','46′','48′'];
+const incu=(T,f)=>[secC(`Temperatura @ ${T} °C (°C)`,MIN_INC,[['e','Equipo','C'],['s1','Sensor 1','D'],['s2','Sensor 2','E'],['s3','Sensor 3','F']].map(([k,l,c])=>pto('i'+T+k,l,T,vCol(c,f,10))),{orden:'fila'}),
+ secC(`HR, flujo y ruido @ ${T} °C`,MIN_INC,[['h','HR (%)','G'],['f','Flujo (m/s)','H'],['r','Ruido (dB)','I']].map(([k,l,c])=>pto('i'+T+k,l,null,vCol(c,f,10))),{orden:'fila',sinNom:true})];
+const canal2=q=>String(q.canales)==='2';
 const TIPOS={
  flujo:{archivo:'flujo',tipo:'Flujómetro',equipo:'FLUJOMETRO',check:'prog',secciones:[{titulo:'Lecturas del patrón (L/min)',render:'cols',filas:['M1','M2','M3','M4','M5'],
   puntos:['B','C','D'].map((c,j)=>({id:'n'+c,label:'Valor nominal',prog:{cell:c+'149',def:[2,10,15][j]},lec:[150,151,152,153,154].map(f=>({cell:c+f}))}))}]},
@@ -136,7 +183,37 @@ const TIPOS={
  mvac:{archivo:'mano',tipo:'Manovacuómetro',equipo:'MANOVACUOMETRO',certHoja:'MANOVACUOMETRO MODIFICADO',check:'prog',secciones:[{titulo:'Error de indicación',render:'rows',cols:['1ª ↑','1ª ↓','2ª ↑','2ª ↓'],puntos:filasMano(70,[.1,.2,.3,.5,.75,1],[2,4,6,10,15,20])}]},
  mon:{archivo:'mon',tipo:'Monitor multiparámetro',equipo:'MONITOR MULTIPARAMETRO',check:'prog',pregIbp:true,secciones:[bloqueMon(1,210,[120,80,93,60,30]),bloqueMon(2,222,[180,140,153,130,60]),bloqueMon(3,234,[80,40,53,40,15]),
   {titulo:'Saturación de oxígeno SpO2 (%)',render:'cols',filas:['M1','M2','M3','M4'],puntos:colMon(['B','C','D','E'],245,247,['SpO2','SpO2','SpO2','SpO2'],[85,90,95,99],'s')},...ibpMon(1,259),...ibpMon(2,272)]},
- vent:{archivo:'vent',tipo:'Ventilador / Máq. anestesia',equipo:'VENTILADOR',check:'grupo',secciones:[confVent(1,173,[300,4.2,'NI',5,'NA',14,1.4,1,2.1]),confVent(2,186,[400,7.2,'NI',6,'NA',18,0.95,1,2.5]),confVent(3,199,[500,8,'NI',7,'NA',16,0.94,1,3])]}
+ vent:{archivo:'vent',tipo:'Ventilador / Máq. anestesia',equipo:'VENTILADOR',check:'grupo',secciones:[confVent(1,173,[300,4.2,'NI',5,'NA',14,1.4,1,2.1]),confVent(2,186,[400,7.2,'NI',6,'NA',18,0.95,1,2.5]),confVent(3,199,[500,8,'NI',7,'NA',16,0.94,1,3])]},
+ // v56: plantillas nuevas
+ bomba:{archivo:'bomba',tipo:'Bomba de infusión',equipo:'BOMBA DE INFUSIÓN',check:'prog',secciones:[...bomba(1,163),...bomba(2,180,canal2)]},
+ desfi:{archivo:'desfi',tipo:'Desfibrilador',equipo:'DESFIBRILADOR',check:'prog',secciones:[
+  secC('Prueba de energía · carga 1',M4,[pto('d1e','Energía (J)',eDesfi(50,15),vCol('B',206,4)),pto('d1v','Vp (V)',null,vCol('C',206,4)),pto('d1i','Ip (A)',null,vCol('D',206,4))]),
+  secC('Prueba de energía · carga 2',M4,[pto('d2e','Energía (J)',eDesfi(100,50),vCol('E',206,4)),pto('d2v','Vp (V)',null,vCol('F',206,4)),pto('d2i','Ip (A)',null,vCol('G',206,4))]),
+  secC('Prueba de energía · carga 3',M4,[pto('d3e','Energía (J)',eDesfi(200,100),vCol('B',217,4)),pto('d3v','Vp (V)',null,vCol('C',217,4)),pto('d3i','Ip (A)',null,vCol('D',217,4))]),
+  secC('Prueba de energía · carga 4',M4,[pto('d4e','Energía (J)',eDesfi(300,150),vCol('E',217,4)),pto('d4v','Vp (V)',null,vCol('F',217,4)),pto('d4i','Ip (A)',null,vCol('G',217,4))]),
+  secC('Tiempo de carga (a energía máxima)',M4,[pto('dtt','Tiempo (s)',null,vCol('B',230,4)),pto('dte','Energía (J)',q=>num(q.emax),vCol('C',230,4)),pto('dtv','Vp (V)',null,vCol('D',230,4)),pto('dti','Ip (A)',null,vCol('E',230,4))]),
+  secC('Sincronismo · fibrilación atrial (200 J)',['M1'],[pto('dat','Tiempo (ms)',null,['B244']),pto('dae','Energía (J)',200,['C244']),pto('dav','Vp (V)',null,['D244']),pto('dai','Ip (A)',null,['E244'])]),
+  secC('Sincronismo · sinusal normal (200 J)',['M1'],[pto('dst','Tiempo (ms)',null,['F244']),pto('dse','Energía (J)',200,['G244']),pto('dsv','Vp (V)',null,['H244']),pto('dsi','Ip (A)',null,['I244'])]),
+  secC('Frecuencia cardiaca (lpm)',M4,[30,60,80,120,240].map((n,i)=>pto('dfc'+n,String(n),n,vCol('BCDEF'[i],253,4))))]},
+ bisturi:{archivo:'bisturi',tipo:'Electrobisturí',equipo:'ELECTROBISTURI',check:'prog',secciones:[...bisMod('Corte puro (300 Ω)','pCorte',180),...bisMod('Blend (300 Ω)','pBlend',193),...bisMod('Coagulación (500 Ω)','pCoag',206),
+  secC('Bipolar standard (100 Ω)',M4,[pto('pBipa','50 %',pBis2('pBip'),vCol('B',219,4)),pto('pBipb','100 %',pBis('pBip'),vCol('C',219,4))])]},
+ ecg:{archivo:'ecg',tipo:'Electrocardiógrafo',equipo:'ELECTROCARDIOGRAFO',check:'prog',secciones:[
+  secC('Frecuencia cardiaca · distancia medida (mm)',M4,[30,60,80,120,240].map((n,i)=>pto('gfc'+n,n+' lpm',n,hFila(CDEF,178+2*i),{ref:fcEcg})),{nota:'Nominal en lpm. Digite la distancia medida en mm entre complejos (a 25 mm/s); se compara con la esperada (1500 ÷ lpm).'}),
+  secC('Amplitud (mm)',M4,[5,10,20].map((n,i)=>pto('gam'+n,n+' mm/mV',n,hFila(BCDE,195+i))))]},
+ tens:{archivo:'tens',tipo:'Electroestimulador / TENS',equipo:'ELECTROESTIMULADOR',check:'prog',secciones:[
+  secC('Canal 1 · frecuencia (Hz)',M4,[2,20,60,100,150].map((n,i)=>pto('t1f'+n,String(n),n,hFila(CDEF,139+i)))),
+  secC('Canal 2 · frecuencia (Hz)',M4,[2,20,60,100,150].map((n,i)=>pto('t2f'+n,String(n),n,hFila(CDEF,146+i))),{cond:canal2})]},
+ esfi:{archivo:'esfi',tipo:'Esfigmomanómetro',equipo:'ESFIGMOMANOMETRO',check:'prog',secciones:[{titulo:'Error de indicación (mmHg)',render:'rows',hdr:['Punto','Ref. (mmHg)'],cols:['1ª ↑','1ª ↓','2ª ↑','2ª ↓'],
+  puntos:[0,50,100,150,200,250,300].map((n,i)=>pto('ef'+n,String(i+1),n,hFila(BCDE,42+i)))}]},
+ espiro:{archivo:'espiro',tipo:'Espirómetro',equipo:'ESPIROMETRO',check:'prog',secciones:[secC('Volumen (L)',M4,[pto('evE','Espiración',3,hFila(CDEF,135)),pto('evI','Inspiración',3,hFila(CDEF,136))])]},
+ holter:{archivo:'holter',tipo:'Holter',equipo:'HOLTER',check:'prog',secciones:[secC('Frecuencia cardiaca (lpm)',M4,[0,1,2,3,4].map(i=>pto('hfc'+i,'Punto '+(i+1),{cell:'B'+(134+i)},hFila(CDEF,134+i))))]},
+ incu:{archivo:'incu',tipo:'Incubadora / Cuna de calor',equipo:'INCUBADORA NEONATAL',check:'prog',secciones:[...incu(33,195),...incu(35,210),...incu(37,225)]},
+ nebu:{archivo:'nebu',tipo:'Nebulizador',equipo:'NEBULIZADOR',check:'prog',secciones:[secC('Lecturas',M4,[pto('nfl','Flujo (lpm)',null,hFila(BCDE,133)),pto('npr','Presión (psi)',null,hFila(BCDE,136))],{sinNom:true})]},
+ pulsi:{archivo:'pulsi',tipo:'Pulsioxímetro',equipo:'PULSIOXIMETRO',check:'prog',secciones:[
+  secC('Frecuencia cardiaca (lpm)',M4,[40,60,130].map((n,i)=>pto('pfc'+n,String(n),n,vCol('BCD'[i],139,4)))),
+  secC('Saturación SpO2 (%)',M4,[85,90,95,99].map((n,i)=>pto('psp'+n,String(n),n,vCol('GHIJ'[i],139,4))))]},
+ tensio:{archivo:'tensio',tipo:'Tensiómetro digital',equipo:'TENSIOMETRO DIGITAL',check:'prog',secciones:[[120,80,60,146],[180,140,130,158],[80,40,40,170]].map(([a,b,c,f],i)=>
+  secC(`NIBP y frecuencia cardiaca · punto ${i+1}`,M4,[pto(`ts${i}`,'Sist. (mmHg)',a,vCol('B',f,4)),pto(`td${i}`,'Diast. (mmHg)',b,vCol('C',f,4)),pto(`tf${i}`,'FC (lpm)',c,vCol('D',f,4))]))}
 };
 const LUGARES=['En Sitio','Laboratorio de Metrología de INTELMEDICA CORP'];
 const METROLOGOS=['JHON STIVEN DELGADO','JEISSON G. PORTILLA'];
@@ -199,6 +276,12 @@ function bloquear(modo,msg){BLOQ=true;try{sessionStorage.removeItem(OKKEY)}catch
   if(Date.now()<pinEspera)return e(`Demasiados intentos. Espere ${Math.ceil((pinEspera-Date.now())/1000)} s.`);
   if(await pinOk(a)){pinFallos=0;if(modo==='actual')return bloquear('crear');desbloquear();return}
   pinFallos++;i1.value='';if(pinFallos>=5){pinEspera=Date.now()+30e3*Math.min(10,pinFallos-4);e('PIN incorrecto. Demasiados intentos: espere antes de volver a intentar.')}else e(`PIN incorrecto (${pinFallos} de 5).`)};
+ // v55: al escribir el PIN se revisa solo; si es correcto entra sin tocar «Entrar», si no espera a que termine de escribirlo.
+ // Con 6 números (el máximo) y errado sí cuenta como intento fallido, para que el límite de intentos siga funcionando.
+ if(!crear){let rev=0;i1.addEventListener('input',async()=>{const a=i1.value.trim(),n=++rev;if(!/^\d{4,6}$/.test(a)||Date.now()<pinEspera)return;
+  const ok=await pinOk(a);if(n!==rev||i1.value.trim()!==a||!BLOQ)return;
+  if(ok){pinFallos=0;if(modo==='actual')return bloquear('crear');desbloquear();return}
+  if(a.length===6)document.getElementById('lkF').requestSubmit()})}
  const x=document.getElementById('lkX');if(x)x.onclick=ev=>{ev.preventDefault();desbloquear()};
  const o=document.getElementById('lkO');if(o)o.onclick=async ev=>{ev.preventDefault();e('Conéctese con una cuenta de Google autorizada para crear un PIN nuevo…');
   try{await conectar();bloquear('crear','Cuenta verificada. Cree un PIN nuevo.')}catch(er){e(er.message||String(er))}}}
@@ -232,9 +315,9 @@ const A=q=>ARCHIVOS[T(q).archivo];
 // Secciones con cond (p. ej. IBP del monitor) solo cuentan si aplican al equipo.
 const SECC=(t,q)=>t.secciones.filter(sc=>!sc.cond||!q||sc.cond(q));
 const PUNTOS=(t,q)=>SECC(t,q).flatMap(sc=>sc.puntos);
-function eqNuevo(prev){const t=T(),v={},mismo=prev&&(prev.tpl||ST.tpl)===ST.tpl;PUNTOS(t).forEach(p=>{v[p.prog.cell]=(mismo?prev?.v?.[p.prog.cell]:null)??String(p.prog.def)});
+function eqNuevo(prev){const t=T(),v={},mismo=prev&&(prev.tpl||ST.tpl)===ST.tpl;PUNTOS(t).forEach(p=>{v[p.prog.cell]=(mismo?prev?.v?.[p.prog.cell]:null)??String(p.prog.def??'')});
  const q={id:uid(),tpl:ST.tpl,certificado:'',acred:prev?.acred||'',equipo:t.equipo,marca:'',modelo:'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:prev?.tIni||'',tFin:prev?.tFin||'',hIni:prev?.hIni||'',hFin:prev?.hFin||'',v,hecho:'',err:''};
- (A().extra||[]).forEach(x=>q[x.k]=(mismo&&prev?.[x.k])||'');if(!mismo)q.ubicacion=prev?.ubicacion||'';q.mpa=T(q)===TIPOS.mvac&&(q.unidades==='kPa'||q.unidades==='MPa');return q}
+ (A().extra||[]).forEach(x=>q[x.k]=(mismo&&prev?.[x.k])||x.def||'');if(!mismo)q.ubicacion=prev?.ubicacion||'';q.mpa=T(q)===TIPOS.mvac&&(q.unidades==='kPa'||q.unidades==='MPa');return q}
 // Borradores de la versión anterior (solo flujómetro): se pasan al formato nuevo.
 (function(){(ST.eqs||[]).forEach(q=>{if(!q.tpl&&ST.tpl)q.tpl=ST.tpl})})();
 (function migrar(){let c=false;(ST.eqs||[]).forEach(q=>{if(q.v||!q.nom)return;q.v={};['B','C','D'].forEach((col,j)=>{q.v[col+'149']=String(q.nom[j]??'');(q.lec[j]||[]).forEach((x,i)=>q.v[col+(150+i)]=x)});delete q.nom;delete q.lec;c=true});if(c&&!ST.tpl)ST.tpl='flujo'})();
@@ -255,11 +338,16 @@ const certMal=q=>!certDigOk(q)||!certAnioOk(q);
 const certCls=q=>certMal(q)?'cert certbad':'cert';
 const certRep=q=>!!cert(q)&&ST.eqs.some(x=>x!==q&&cert(x)===cert(q));
 const val=(q,c)=>num(q.v?.[c]);
+// v56: valor nominal de un punto. Fijo: el de la plantilla (o calculado desde los datos del instrumento, p. ej. la
+// energía máxima del desfibrilador); editable: lo digitado. chkV: contra qué se revisa el ±10 % (ECG: distancia esperada en mm).
+const nomV=(q,p)=>p.prog.fijo?num(p.prog.calc?p.prog.calc(q):p.prog.def):val(q,p.prog.cell);
+const chkV=(q,p)=>{const n=nomV(q,p);return n!==null&&p.ref?p.ref(n):n};
+const nomTxt=(q,p)=>{const n=p.prog.calc?p.prog.calc(q):p.prog.def;return n===null||n===undefined||n===''?'—':(typeof n==='number'?fmtN(n):String(n))};
 // Puntos obligatorios: con valor programado numérico. En ventiladores, los parámetros NA/NI son
 // opcionales, pero si se llena una lectura hay que llenar las ocho.
 const obligatorio=(t,q,p)=>t.check==='prog'||val(q,p.prog.cell)!==null||p.lec.some(l=>String(q.v[l.cell]??'').trim()!=='');
 const faltanLec=(q)=>{const t=T(q);return PUNTOS(t,q).filter(p=>obligatorio(t,q,p)).reduce((a,p)=>a+p.lec.filter(l=>val(q,l.cell)===null).length,0)};
-const faltaProg=q=>{const t=T(q);return t.check==='prog'&&PUNTOS(t,q).some(p=>val(q,p.prog.cell)===null)};
+const faltaProg=q=>{const t=T(q);return t.check==='prog'&&PUNTOS(t,q).some(p=>!p.prog.fijo&&val(q,p.prog.cell)===null)};
 // Manovacuómetro: la capacidad máxima es de vacío, se escribe con "-" delante automáticamente.
 const capNeg=(x,q)=>T(q)===TIPOS.mvac&&x.k==='capacidad';
 // Manovacuómetro con instrumento en kPa o MPa: el patrón se lee en kPa y en la plantilla va en MPa (÷1000).
@@ -279,17 +367,17 @@ function migrarMPa(q){if(!q||T(q)!==TIPOS.mvac)return;const on=lecKPa(q),C=PUNTO
 // Para el ±10 % y el error: las lecturas están en MPa; si el IBC está en kPa se pasan a kPa.
 const lecU=(q,v)=>v===null||!(lecKPa(q)&&q.unidades==='kPa')?v:Number((v*1000).toPrecision(12));
 const fmtP=x=>x==null?'—':Number(x.toPrecision(6)).toLocaleString('es-CO',{maximumFractionDigits:8});
-const faltaExtra=q=>(A(q).extra||[]).filter(x=>x.num?num(q[x.k])===null:!String(q[x.k]||'').trim()).map(x=>x.l.replace(' *','').toLowerCase());
+const faltaExtra=(q,okNum)=>(A(q).extra||[]).filter(x=>x.num?(!okNum&&num(q[x.k])===null):!String(q[x.k]||'').trim()).map(x=>x.l.replace(' *','').toLowerCase());
 // Campos vacíos de la TOMA DE DATOS (lecturas, valores nominales, condiciones ambientales, capacidad/resolución).
 // Si el metrólogo confirma "no tenerlos en cuenta", el certificado se genera con esas casillas en blanco.
 const vacios=q=>{const t=T(q),L=[];
  ['tIni','tFin','hIni','hFin'].forEach(k=>{if(num(q[k])===null)L.push(k)});
  (A(q).extra||[]).forEach(x=>{if(x.num&&num(q[x.k])===null)L.push(x.k)});
- if(t.check==='prog')PUNTOS(t,q).forEach(p=>{if(val(q,p.prog.cell)===null)L.push(p.prog.cell)});
+ if(t.check==='prog')PUNTOS(t,q).forEach(p=>{if(!p.prog.fijo&&val(q,p.prog.cell)===null)L.push(p.prog.cell)});
  PUNTOS(t,q).filter(p=>obligatorio(t,q,p)).forEach(p=>p.lec.forEach(l=>{if(val(q,l.cell)===null)L.push(l.cell)}));
  return L};
 const vaciosOk=q=>{const v=vacios(q);return!v.length||q.vaciosOk===v.join(';')};
-const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(!certAnioOk(q)?`año del certificado (después del guion debe ir -${aa()})`:q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q).filter(x=>!vaciosOk(q)||!/capacidad|resoluci/.test(x)),!vaciosOk(q)&&faltaProg(q)&&'valores nominales',!vaciosOk(q)&&(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
+const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(!certAnioOk(q)?`año del certificado (después del guion debe ir -${aa()})`:q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q,vaciosOk(q)),!vaciosOk(q)&&faltaProg(q)&&'valores nominales',!vaciosOk(q)&&(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
 // Lo que falta SIN contar los campos vacíos de la toma de datos (para saber si solo faltan esos).
 const faltanFijos=q=>{const o=q.vaciosOk;q.vaciosOk=vacios(q).join(';');const f=faltan(q);q.vaciosOk=o;return f};
 const completo=q=>!faltan(q).length;
@@ -299,14 +387,16 @@ const completo=q=>!faltan(q).length;
 const TOL=0.10;
 const mediana=a=>{const b=[...a].sort((x,y)=>x-y),m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])/2};
 function fuera(q,p,l){const t=T(q),v=val(q,l.cell);if(v===null)return false;
- if(t.check==='prog'){const n=val(q,p.prog.cell),w=lecU(q,v);return n!==null&&n!==0&&Math.abs(w-n)/Math.abs(n)>TOL}
+ if(t.check==='prog'){const n=chkV(q,p),w=lecU(q,v);if(n!==null||!p.prog.fijo)return n!==null&&n!==0&&Math.abs(w-n)/Math.abs(n)>TOL;
+  // v56: parámetro sin valor nominal (Vp, Ip, humedad…): contra las demás lecturas del mismo parámetro (con 3 o más)
+  const g=p.lec.map(x=>val(q,x.cell)).filter(x=>x!==null);if(g.length<3)return false;const md=mediana(g);return md!==0&&Math.abs(v-md)/Math.abs(md)>TOL}
  const g=p.lec.filter(x=>x.k===l.k).map(x=>val(q,x.cell)).filter(x=>x!==null);if(g.length<3)return false;const md=mediana(g);return md!==0&&Math.abs(v-md)/Math.abs(md)>TOL}
 // ¿Por qué está en rojo? 'dig' = posible error de digitación (no coincide con las demás lecturas del mismo
 // punto, la coma parece corrida o el signo está al revés); 'real' = coincide con las demás lecturas pero todas
 // se salen del ±10 %: el equipo está fuera de tolerancia.
 function tipoFuera(q,p,l){const t=T(q),v=lecU(q,val(q,l.cell));
  if(t.check!=='prog')return'dig';   // ventilador: ya se compara contra las demás lecturas del parámetro
- const n=val(q,p.prog.cell);
+const n=chkV(q,p);if(n===null)return'dig';
  if(n&&(v*n<0||Math.abs(v/n)>=5||Math.abs(v/n)<=0.2))return'dig';
  const o=p.lec.filter(x=>x!==l).map(x=>lecU(q,val(q,x.cell))).filter(x=>x!==null);
  if(!o.length)return'real';
@@ -324,7 +414,7 @@ const generable=q=>completo(q)&&confirmado(q);
 const prom=(q,cells)=>{const v=cells.map(c=>val(q,c)).filter(x=>x!==null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null};
 function statsTxt(q,p){const t=T(q);
  if(t.check==='grupo'){const pt=prom(q,p.lec.filter(l=>l.k==='pt').map(l=>l.cell)),eq=prom(q,p.lec.filter(l=>l.k==='eq').map(l=>l.cell));return`Prom. patrón <b>${fmtN(pt)}</b> · Prom. equipo <b>${fmtN(eq)}</b> · Error <b>${fmtN(pt!=null&&eq!=null?eq-pt:null)}</b>`}
- const pr=prom(q,p.lec.map(l=>l.cell)),n=val(q,p.prog.cell),pu=lecU(q,pr),e=pu!=null&&n!=null?(t.archivo==='flujo'?n-pu:pu-n):null;
+ const pr=prom(q,p.lec.map(l=>l.cell)),n=chkV(q,p),pu=lecU(q,pr),e=pu!=null&&n!=null?(t.archivo==='flujo'?n-pu:pu-n):null;
  if(lecKPa(q))return{p:fmtP(pr)+' MPa',e:fmtP(e)+' '+q.unidades};return{p:fmtN(pr),e:fmtN(e)}}
 const chip=q=>!q.hecho&&!confirmado(q)?'<span class="chip err">Revisar</span>':q.hecho?'<span class="chip ok">Generado</span>':q.err?'<span class="chip err">Error</span>':completo(q)?'<span class="chip warn">Listo</span>':'<span class="chip gray">Incompleto</span>';
 
@@ -385,7 +475,8 @@ async function carpetaCliente(){
 }
 async function plantilla(q){
  const t=A(q),ka=T(q).archivo;let id=AJ.tplIds[ka];
- if(!id){let f=await driveList(`name='${dq(t.nombre)}' and trashed=false`);
+ if(!id){let f=t.carpeta?await driveList(`name='${dq(t.nombre)}' and '${dq(t.carpeta)}' in parents and trashed=false`).catch(e=>{if(e instanceof AuthError)throw e;return[]}):[];   // v56: la copia de la carpeta oficial
+  if(!f.length)f=await driveList(`name='${dq(t.nombre)}' and trashed=false`);
   if(!f.length)f=(await driveList(`name contains '${dq(t.busca)}' and trashed=false`)).filter(x=>/\.xlsx$/i.test(x.name));
   if(!f.length)throw new Error('No se encontró la plantilla "'+t.nombre+'" en Drive');
   id=f[0].id;AJ.tplIds[ka]=id;saveLS(KEY+'_aj',AJ)}
@@ -751,7 +842,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v54';
+const VERSION='v56';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -797,16 +888,16 @@ const avisoLec=q=>{const n=nFuera(q);if(!n)return'';const c=cuentaFuera(q);retur
  ${c.real?`<br><span class="ley real"></span><b style="color:#a35400">${c.real} en naranja: fuera de tolerancia real.</b> <span style="color:#a35400">Coinciden con las demás lecturas del punto, pero todas se alejan más del 10 % del valor nominal: el equipo está descalibrado.</span>`:''}
  <br>Si todas son reales, confírmelo:<label style="display:flex;gap:8px;align-items:center;margin:8px 0 0;color:var(--danger)"><input type="checkbox" data-conf="1" style="width:22px;height:22px;margin:0" ${confirmado(q)?'checked':''}> Confirmo que las lecturas marcadas (rojo y naranja) son reales y se deben certificar así</label></div>`};
 const inC=(q,p,l)=>`<input data-cell="${l.cell}" data-p="${p.id}" ${lecKPa(q)?'data-kpa="1" ':''}value="${esc(lecKPa(q)?fmtMPa(q.v[l.cell]):(q.v[l.cell]??''))}" inputmode="decimal" placeholder="${lecKPa(q)?'kPa':'—'}" class="${claseFuera(q,p,l)}">`;
-const inP=(q,p)=>p.prog.fijo?`<span class="st" style="font-weight:800;color:var(--navy)">${esc(p.prog.def)}</span>`:`<input data-cell="${p.prog.cell}" data-p="${p.id}" data-prog="1" value="${esc(q.v[p.prog.cell]??'')}" ${T(q).check==='prog'?'inputmode="decimal"':''}>`;
+const inP=(q,p)=>p.prog.fijo?`<span class="st" style="font-weight:800;color:var(--navy)">${esc(nomTxt(q,p))}</span>`:`<input data-cell="${p.prog.cell}" data-p="${p.id}" data-prog="1" value="${esc(q.v[p.prog.cell]??'')}" ${T(q).check==='prog'?'inputmode="decimal"':''}>`;
 function seccionHtml(q,t,sc){
  if(sc.render==='cols'){const P=sc.puntos;return`<div class="card"><div class="card-title">${esc(sc.titulo)}</div><div class="lec" style="grid-template-columns:56px repeat(${P.length},minmax(0,1fr))"><span></span>${P.map(p=>`<span class="h">${esc(p.label)}</span>`).join('')}
-  <b>Nominal</b>${P.map(p=>inP(q,p)).join('')}
+  ${sc.sinNom?'':`<b>Nominal</b>${P.map(p=>inP(q,p)).join('')}`}
   ${sc.filas.map((f,i)=>`<b>${f}</b>`+P.map(p=>inC(q,p,p.lec[i])).join('')).join('')}
   <b>Prom.</b>${P.map(p=>`<span class="st" id="sp_${p.id}">${statsTxt(q,p).p}</span>`).join('')}
-  <b>Error</b>${P.map(p=>`<span class="st" id="se_${p.id}">${statsTxt(q,p).e}</span>`).join('')}</div></div>`}
- if(sc.render==='rows'){return`<div class="card"><div class="card-title">${esc(sc.titulo)}${lecKPa(q)?` (IBC en ${esc(q.unidades)} · patrón: se digita en kPa, queda en MPa)`:q.unidades?' ('+esc(q.unidades)+')':''}</div><div class="lec lec5" style="grid-template-columns:40px repeat(5,minmax(0,1fr))"><span class="h">% rango</span><span class="h">Valor IBC</span>${sc.cols.map(c=>`<span class="h">${c}</span>`).join('')}
+  ${sc.sinNom?'':`<b>Error</b>${P.map(p=>`<span class="st" id="se_${p.id}">${statsTxt(q,p).e}</span>`).join('')}`}</div>${sc.nota?`<p class="muted small" style="margin:8px 0 0">${esc(sc.nota)}</p>`:''}</div>`}
+ if(sc.render==='rows'){return`<div class="card"><div class="card-title">${esc(sc.titulo)}${lecKPa(q)?` (IBC en ${esc(q.unidades)} · patrón: se digita en kPa, queda en MPa)`:q.unidades?' ('+esc(q.unidades)+')':''}</div><div class="lec lec5" style="grid-template-columns:40px repeat(5,minmax(0,1fr))"><span class="h">${esc((sc.hdr||['% rango'])[0])}</span><span class="h">${esc((sc.hdr||[0,'Valor IBC'])[1])}</span>${sc.cols.map(c=>`<span class="h">${c}</span>`).join('')}
   ${sc.puntos.map(p=>`<b style="font-size:12px">${p.label}</b>${inP(q,p)}${p.lec.map(l=>inC(q,p,l)).join('')}<span></span><span class="muted small" style="grid-column:span 5;margin:-2px 0 6px" id="ss_${p.id}">${(s=>`Prom. <b>${s.p}</b> · Error <b>${s.e}</b>${mpaTxt(q,p)}`)(statsTxt(q,p))}</span>`).join('')}</div>
-  <p class="muted small" style="margin:8px 0 0">Valor IBC: valor del instrumento en cada punto. Lecturas del patrón sin corregir: 1ª y 2ª serie, creciente (↑) y decreciente (↓).${lecKPa(q)?' <b>Lecturas del patrón:</b> digítelas en <b>kPa</b>; al pasar a la siguiente casilla se convierten y quedan en <b>MPa</b>, que es lo que va a la plantilla.':''}</p></div>`}
+  ${sc.hdr?'':`<p class="muted small" style="margin:8px 0 0">Valor IBC: valor del instrumento en cada punto. Lecturas del patrón sin corregir: 1ª y 2ª serie, creciente (↑) y decreciente (↓).${lecKPa(q)?' <b>Lecturas del patrón:</b> digítelas en <b>kPa</b>; al pasar a la siguiente casilla se convierten y quedan en <b>MPa</b>, que es lo que va a la plantilla.':''}</p>`}</div>`}
  return`<div class="card"><div class="card-title">${esc(sc.titulo)}</div>${sc.puntos.map(p=>`<div class="vp"><div class="vph"><b>${esc(p.label)}</b><label>Programado ${inP(q,p)}</label></div>
   <div class="lec" style="grid-template-columns:44px repeat(2,minmax(0,1fr))"><span></span><span class="h">Patrón (Ept)</span><span class="h">Equipo (EBP)</span>
   ${[0,1,2,3].map(m=>`<b>M${m+1}</b>${p.lec.filter(l=>l.m===m).map(l=>inC(q,p,l)).join('')}`).join('')}</div>
@@ -1013,7 +1104,7 @@ ACT.celZip=()=>run(async()=>{
 // Casillas de toma de datos (lecturas, valores programados, condiciones ambientales y datos del instrumento):
 // al entrar se selecciona el valor anterior, así lo que se escriba lo reemplaza. No aplica a cliente ni a
 // la identificación del equipo.
-const REEMPLAZA=new Set(['tIni','tFin','hIni','hFin','capacidad','resolucion']);
+const REEMPLAZA=new Set(['tIni','tFin','hIni','hFin','capacidad','resolucion','pCorte','pBlend','pCoag','pBip','division']);
 const esReemplazo=el=>el&&el.tagName==='INPUT'&&(el.dataset.cell!==undefined||REEMPLAZA.has(el.dataset.q));
 document.addEventListener('focusin',ev=>{const el=ev.target;
  if(el.dataset?.kpa){const q=ST.eqs.find(x=>x.id===ST.editando);if(q)el.value=val(q,el.dataset.cell)===null?(q.v?.[el.dataset.cell]??''):kpaDe(q,el.dataset.cell)}
@@ -1039,6 +1130,7 @@ document.addEventListener('input',ev=>{
 document.addEventListener('change',ev=>{
  const el=ev.target,d=el.dataset;
  if(d.q&&el.tagName==='SELECT'){const q=ST.eqs.find(x=>x.id===ST.editando);if(q){q[d.q]=el.value;q.hecho='';migrarMPa(q);guardar();render()}return}
+ if(d.q&&el.tagName==='INPUT'){const q=ST.eqs.find(x=>x.id===ST.editando),x=q&&(A(q).extra||[]).find(e=>e.k===d.q);if(x&&x.nom){guardar();const y=scrollY;render();scrollTo(0,y)}return}   // v56: potencia máxima → nominales
  if(d.conf){const q=ST.eqs.find(x=>x.id===ST.editando);if(q){q.confFuera=el.checked?firmaFuera(q):'';q.hecho='';guardar()}return}
  if(d.g==='gen'&&el.tagName==='SELECT'){ST.gen[d.k]=el.value;guardar();return}
  if(d.g==='cli'&&d.k==='nombre'){const c=CLIENTES.find(x=>norm(x.nombre)===norm(el.value));if(c){if(!ST.cli.contacto)ST.cli.contacto=c.contacto;if(!ST.cli.telefono)ST.cli.telefono=c.telefono;guardar();render()}}
@@ -1052,6 +1144,7 @@ document.addEventListener('focusout',ev=>{const el=ev.target;if(el.dataset?.kpa)
 function ordenLec(q){const t=T(q),L=[];
  SECC(t,q).forEach(sc=>{
   if(sc.render==='rows')sc.cols.forEach((c,j)=>{const col=sc.puntos.map(p=>p.lec[j].cell);L.push(...(c.includes('↓')?col.reverse():col))});
+  else if(sc.render==='cols'&&sc.orden==='fila')sc.filas.forEach((f,i)=>sc.puntos.forEach(p=>p.lec[i]&&L.push(p.lec[i].cell)));   // v56: incubadora, por minuto
   else if(sc.render==='cols')sc.puntos.forEach(p=>L.push(...p.lec.map(l=>l.cell)));
   else sc.puntos.forEach(p=>['pt','eq'].forEach(k=>L.push(...p.lec.filter(l=>l.k===k).sort((a,b)=>a.m-b.m).map(l=>l.cell))))});
  return L}
