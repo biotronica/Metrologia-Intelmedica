@@ -17,7 +17,7 @@
    document.body.appendChild(d)})}})();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v57</title>
+<title>Metrología · Intelmedica v58</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -139,6 +139,10 @@ const ARCHIVOS={
   celdas:{nombre:'B14',contacto:'G14',direccion:'B16',telefono:'G16',lugar:'H34',metrologo:'B101',recepcion:'B123',fecha:'F123',certificado:'J123',tIni:'B127',tFin:'E127',hIni:'B129',hFin:'E129',equipo:'B133',serie:'G133',marca:'B135',activo:'G135',modelo:'B137',ubicacion:'G137'}},
  incu:{nombre:"F-27-P-SC02 PLANTILLA INCUBADORA PEDIATRICA - CUNA CALOR RADIANTE V3.xlsx",busca:"PLANTILLA INCUBADORA",carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:"INCUBADORA",lab:"Laboratorio de Metrología de INTELMEDICA CORP ",
   celdas:{nombre:'B14',contacto:'G14',direccion:'B16',telefono:'G16',lugar:'H34',metrologo:'B151',recepcion:'B172',fecha:'F172',certificado:'J172',tIni:'B176',tFin:'E176',hIni:'B178',hFin:'E178',equipo:'B182',serie:'F182',marca:'B184',activo:'F184',modelo:'B186',ubicacion:'F186'}},
+ // v58: ecógrafo, una hoja por transductor; cada hoja es un certificado completo (mismo N.º en todas). Ver TX_ECO.
+ eco:{nombre:'F-16-P-SC02 PLANTILLA ECOGRAFO V3.xlsx',busca:'PLANTILLA ECOGRAFO',carpeta:'160_XGQ2UzNATl9xLA2Vue_V-4siP7YJi',hoja:'CONVEXO',lab:'Laboratorio de Metrología de INTELMEDICA CORP ',
+  celdas:{nombre:'B14',contacto:'F14',direccion:'B16',telefono:'F16',lugar:'H36',metrologo:'G149',recepcion:'B145',fecha:'F145',certificado:'I145',tIni:'B149',tFin:'E149',hIni:'B151',hFin:'E151',equipo:'B155',serie:'F155',marca:'B157',activo:'F157',modelo:'B159',ubicacion:'F159'},
+  extra:[]},
  esfi:{nombre:'F-20-P-SC02 PLANTILLA ESFIGMOMANOMETRO V6 REVISION MOD 20240809.xlsx',busca:'ESFIGMOMANOMETRO V6 REVISION',carpeta:'1tuTLzFia3lFGGFmyaD_Uyh4PMJARW7OW',hoja:'DATOS PRIMARIOS ESFIGMOMANOMETR',lab:"Laboratorio de Metrología de INTELMEDICA CORP ",
   celdas:{recepcion:'A7',fecha:'A10',nombre:'A15',contacto:'C15',direccion:'E15',telefono:'G15',certificado:'I15',tIni:'B20',tFin:'E20',hIni:'B21',hFin:'E21',equipo:'B24',serie:'F24',marca:'B25',activo:'F25',modelo:'B26',ubicacion:'F26',metrologo:'A30',lugar:'A33'},extra:[{k:'division',l:'División de escala (mmHg) *',cell:'B27',num:true,def:'2'}]}
 
@@ -175,6 +179,19 @@ const MIN_INC=['30′','32′','34′','36′','38′','40′','42′','44′','
 const incu=(T,f)=>[secC(`Temperatura @ ${T} °C (°C)`,MIN_INC,[['e','Equipo','C'],['s1','Sensor 1','D'],['s2','Sensor 2','E'],['s3','Sensor 3','F']].map(([k,l,c])=>pto('i'+T+k,l,T,vCol(c,f,10))),{orden:'fila'}),
  secC(`HR, flujo y ruido @ ${T} °C`,MIN_INC,[['h','HR (%)','G'],['f','Flujo (m/s)','H'],['r','Ruido (dB)','I']].map(([k,l,c])=>pto('i'+T+k,l,null,vCol(c,f,10))),{orden:'fila',sinNom:true})];
 const canal2=q=>String(q.canales)==='2';
+// v58: ecógrafo. Cada transductor = una hoja de la plantilla; las celdas llevan la hoja delante («LINEAL 1!B175»).
+const TX_ECO=[['CONVEXO','Convexo'],['VOLUMETRICO','Volumétrico'],['LINEAL 1','Lineal 1'],['LINEAL 2','Lineal 2'],['ENDOCAVITARIO 1','Endocavitario 1'],['ENDOCAVITARIO 2','Endocavitario 2']];
+const txSi=i=>q=>q['tx'+i]==='Sí';
+const hojasEco=q=>TX_ECO.filter((x,i)=>txSi(i)(q)).map(x=>x[0]);
+TX_ECO.forEach(([h,n],i)=>ARCHIVOS.eco.extra.push({k:'tx'+i,l:`Transductor ${n} *`,opts:['Sí','No']},
+ {k:'txm'+i,l:`${n}: modelo del transductor *`,cell:h+'!B164',texto:true,cond:txSi(i)},{k:'txs'+i,l:`${n}: serie del transductor`,cell:h+'!F164',texto:true,opc:true,cond:txSi(i)}));
+const ecoSecs=()=>TX_ECO.flatMap(([h,n],i)=>{const c=h+'!',P=(id,l,nom,cs,f)=>pto('e'+i+id,l,nom,cs.map(x=>c+x+f)),co={cond:txSi(i)};return[
+ secC(`${n} · distancia (cm)`,M4,[P('dh','Horiz. 2',2,BCDE,175),P('dv1','Vert. 1',1,BCDE,180),P('dv5','Vert. 5',5,BCDE,181)],co),
+ secC(`${n} · zona muerta (mm)`,M4,[2,5,10].map((v,j)=>P('zm'+v,String(v),v,['H','I','J','K'],175+j)),co),
+ secC(`${n} · resolución axial-lateral (mm)`,M4,[1,2,3,5].map((v,j)=>P('ra'+v,String(v),v,['H','I','J','K'],181+j)),co),
+ secC(`${n} · cilindros anecoides (mm)`,M4,[4,8,10].map((v,j)=>P('ci'+v,String(v),v,['N','O','P','Q'],176+j)),co),
+ secC(`${n} · objeto huevo 3D (cm) · opcional`,M4,[5,7].map((v,j)=>({...P('hu'+v,String(v),v,['N','O','P','Q'],182+j),opcional:true})),co),
+ secC(`${n} · volumen (cm³) · opcional`,M4,[{...P('vol','91,6',91.6,['N','O','P','Q'],186),opcional:true}],co)]});
 const TIPOS={
  flujo:{archivo:'flujo',tipo:'Flujómetro',equipo:'FLUJOMETRO',check:'prog',secciones:[{titulo:'Lecturas del patrón (L/min)',render:'cols',filas:['M1','M2','M3','M4','M5'],
   puntos:['B','C','D'].map((c,j)=>({id:'n'+c,label:'Valor nominal',prog:{cell:c+'149',def:[2,10,15][j]},lec:[150,151,152,153,154].map(f=>({cell:c+f}))}))}]},
@@ -203,6 +220,7 @@ const TIPOS={
  tens:{archivo:'tens',tipo:'Electroestimulador / TENS',equipo:'ELECTROESTIMULADOR',check:'prog',secciones:[
   secC('Canal 1 · frecuencia (Hz)',M4,[2,20,60,100,150].map((n,i)=>pto('t1f'+n,String(n),n,hFila(CDEF,139+i)))),
   secC('Canal 2 · frecuencia (Hz)',M4,[2,20,60,100,150].map((n,i)=>pto('t2f'+n,String(n),n,hFila(CDEF,146+i))),{cond:canal2})]},
+ eco:{archivo:'eco',tipo:'Ecógrafo',equipo:'ECÓGRAFO',check:'prog',hojas:hojasEco,valida:q=>hojasEco(q).length?[]:['al menos un transductor (Sí)'],secciones:ecoSecs()},
  esfi:{archivo:'esfi',tipo:'Esfigmomanómetro',equipo:'ESFIGMOMANOMETRO',certHoja:'CERTIFICADO ESFIGMOMANOMETRO',check:'prog',secciones:[{titulo:'Error de indicación (mmHg)',render:'rows',hdr:['Punto','Ref. (mmHg)'],cols:['1ª ↑','1ª ↓','2ª ↑','2ª ↓'],
   puntos:[0,50,100,150,200,250,300].map((n,i)=>pto('ef'+n,String(i+1),n,hFila(BCDE,42+i)))}]},
  espiro:{archivo:'espiro',tipo:'Espirómetro',equipo:'ESPIROMETRO',check:'prog',secciones:[secC('Volumen (L)',M4,[pto('evE','Espiración',3,hFila(CDEF,135)),pto('evI','Inspiración',3,hFila(CDEF,136))])]},
@@ -345,7 +363,7 @@ const chkV=(q,p)=>{const n=nomV(q,p);return n!==null&&p.ref?p.ref(n):n};
 const nomTxt=(q,p)=>{const n=p.prog.calc?p.prog.calc(q):p.prog.def;return n===null||n===undefined||n===''?'—':(typeof n==='number'?fmtN(n):String(n))};
 // Puntos obligatorios: con valor programado numérico. En ventiladores, los parámetros NA/NI son
 // opcionales, pero si se llena una lectura hay que llenar las ocho.
-const obligatorio=(t,q,p)=>t.check==='prog'||val(q,p.prog.cell)!==null||p.lec.some(l=>String(q.v[l.cell]??'').trim()!=='');
+const obligatorio=(t,q,p)=>(!p.opcional&&(t.check==='prog'||val(q,p.prog.cell)!==null))||p.lec.some(l=>String(q.v[l.cell]??'').trim()!=='');   // v58: opcional (huevo 3D, volumen) solo si se empezó
 const faltanLec=(q)=>{const t=T(q);return PUNTOS(t,q).filter(p=>obligatorio(t,q,p)).reduce((a,p)=>a+p.lec.filter(l=>val(q,l.cell)===null).length,0)};
 const faltaProg=q=>{const t=T(q);return t.check==='prog'&&PUNTOS(t,q).some(p=>!p.prog.fijo&&val(q,p.prog.cell)===null)};
 // Manovacuómetro: la capacidad máxima es de vacío, se escribe con "-" delante automáticamente.
@@ -367,17 +385,17 @@ function migrarMPa(q){if(!q||T(q)!==TIPOS.mvac)return;const on=lecKPa(q),C=PUNTO
 // Para el ±10 % y el error: las lecturas están en MPa; si el IBC está en kPa se pasan a kPa.
 const lecU=(q,v)=>v===null||!(lecKPa(q)&&q.unidades==='kPa')?v:Number((v*1000).toPrecision(12));
 const fmtP=x=>x==null?'—':Number(x.toPrecision(6)).toLocaleString('es-CO',{maximumFractionDigits:8});
-const faltaExtra=(q,okNum)=>(A(q).extra||[]).filter(x=>x.num?(!okNum&&num(q[x.k])===null):!String(q[x.k]||'').trim()).map(x=>x.l.replace(' *','').toLowerCase());
+const faltaExtra=(q,okNum)=>(A(q).extra||[]).filter(x=>!x.opc&&(!x.cond||x.cond(q))).filter(x=>x.num?(!okNum&&num(q[x.k])===null):!String(q[x.k]||'').trim()).map(x=>x.l.replace(' *','').toLowerCase());
 // Campos vacíos de la TOMA DE DATOS (lecturas, valores nominales, condiciones ambientales, capacidad/resolución).
 // Si el metrólogo confirma "no tenerlos en cuenta", el certificado se genera con esas casillas en blanco.
 const vacios=q=>{const t=T(q),L=[];
  ['tIni','tFin','hIni','hFin'].forEach(k=>{if(num(q[k])===null)L.push(k)});
- (A(q).extra||[]).forEach(x=>{if(x.num&&num(q[x.k])===null)L.push(x.k)});
+ (A(q).extra||[]).forEach(x=>{if(x.num&&(!x.cond||x.cond(q))&&num(q[x.k])===null)L.push(x.k)});
  if(t.check==='prog')PUNTOS(t,q).forEach(p=>{if(!p.prog.fijo&&val(q,p.prog.cell)===null)L.push(p.prog.cell)});
  PUNTOS(t,q).filter(p=>obligatorio(t,q,p)).forEach(p=>p.lec.forEach(l=>{if(val(q,l.cell)===null)L.push(l.cell)}));
  return L};
 const vaciosOk=q=>{const v=vacios(q);return!v.length||q.vaciosOk===v.join(';')};
-const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(!certAnioOk(q)?`año del certificado (después del guion debe ir -${aa()})`:q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q,vaciosOk(q)),!vaciosOk(q)&&faltaProg(q)&&'valores nominales',!vaciosOk(q)&&(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
+const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(!certAnioOk(q)?`año del certificado (después del guion debe ir -${aa()})`:q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q,vaciosOk(q)),...(T(q).valida?T(q).valida(q):[]),!vaciosOk(q)&&faltaProg(q)&&'valores nominales',!vaciosOk(q)&&(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
 // Lo que falta SIN contar los campos vacíos de la toma de datos (para saber si solo faltan esos).
 const faltanFijos=q=>{const o=q.vaciosOk;q.vaciosOk=vacios(q).join(';');const f=faltan(q);q.vaciosOk=o;return f};
 const completo=q=>!faltan(q).length;
@@ -544,18 +562,21 @@ async function generarEq(q,est){
   // Todo el texto va en MAYÚSCULAS (menos las unidades de presión, p. ej. kPa).
   // Información del equipo y del cliente (serie, N.º interno, modelo, teléfono…): va como TEXTO, para que
   // Sheets no la convierta en número y se conserven los ceros de adelante (p. ej. serie 00123).
-  const d=[],put=(a,v)=>d.push({range:`'${hoja}'!${a}`,values:[[v]]}),tx=v=>/^[0-9+\-=.,]/.test(v)?"'"+v:v,txt=v=>{v=MAY(v).trim();return v===''?'NI':tx(v)};
+  // v58: ecógrafo → los datos generales van en la hoja de cada transductor elegido; «HOJA!celda» va solo a esa hoja
+  const HJ=t.hojas?t.hojas(q):[hoja],d=[],put=(a,v)=>{const m=/^(.+)!([A-Z]+\d+)$/.exec(a);if(m)d.push({range:`'${m[1]}'!${m[2]}`,values:[[v]]});else HJ.forEach(h=>d.push({range:`'${h}'!${a}`,values:[[v]]}))},tx=v=>/^[0-9+\-=.,]/.test(v)?"'"+v:v,txt=v=>{v=MAY(v).trim();return v===''?'NI':tx(v)};
   put(C.nombre,tx(MAY(K.nombre).trim()));put(C.contacto,tx(MAY(K.contacto).trim()));put(C.direccion,tx(MAY(K.direccion).trim()));put(C.telefono,tx(MAY(K.telefono).trim()));
   put(C.lugar,G.lugar==='En Sitio'?'EN SITIO':MAY(a.lab));if(G.metrologo)put(C.metrologo,MAY(G.metrologo));put(C.recepcion,G.recepcion);put(C.fecha,G.fecha);put(C.certificado,"'"+cert(q));
   ['tIni','tFin','hIni','hFin'].forEach(k=>{const n=num(q[k]);put(C[k],n===null?'':n)});
   put(C.equipo,txt(q.equipo));put(C.serie,txt(q.serie));put(C.marca,txt(q.marca));put(C.activo,txt(q.activo));put(C.modelo,txt(q.modelo));put(C.ubicacion,txt(q.ubicacion));
-  (a.extra||[]).filter(x=>x.cell).forEach(x=>put(x.cell,x.num?(capNeg(x,q)&&num(q[x.k])!==null?-Math.abs(num(q[x.k])):num(q[x.k])):String(q[x.k]||'')));
+  (a.extra||[]).filter(x=>x.cell&&(!x.cond||x.cond(q))).forEach(x=>put(x.cell,x.texto?txt(q[x.k]):x.num?(capNeg(x,q)&&num(q[x.k])!==null?-Math.abs(num(q[x.k])):num(q[x.k])):String(q[x.k]||'')));
   PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();if(!p.prog.fijo)put(p.prog.cell,num(pv)!==null?num(pv):(MAY(pv)||(t.check==='prog'?'':'NI')));p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,n===null?'':n)})});
   est('Escribiendo los datos…');
   await api(SH+tmp.id+'/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data:d})});
   // Manómetros: se deja visible la hoja del certificado que corresponde al tipo elegido.
   const reqs=[];
   if(t.certHoja){const h=meta.sheets.find(s=>s.properties.title.trim()===t.certHoja);if(h&&h.properties.hidden)reqs.push({updateSheetProperties:{properties:{sheetId:h.properties.sheetId,hidden:false},fields:'hidden'}})}
+  // v58: ecógrafo: se ocultan las hojas de los transductores que no tiene
+  if(t.hojas)meta.sheets.forEach(s=>{const ok=HJ.includes(s.properties.title.trim());if(ok===!!s.properties.hidden)reqs.push({updateSheetProperties:{properties:{sheetId:s.properties.sheetId,hidden:!ok},fields:'hidden'}})});
   // Manovacuómetro: Valor IBC (B70:B76) con 2 decimales y lecturas del patrón (C70:F75) con 3 decimales.
   if(t===TIPOS.mvac){const sid=meta.sheets.find(s=>s.properties.title===hoja).properties.sheetId,fmt=(r0,r1,c0,c1,pat)=>({repeatCell:{range:{sheetId:sid,startRowIndex:r0-1,endRowIndex:r1,startColumnIndex:c0,endColumnIndex:c1},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:pat}}},fields:'userEnteredFormat.numberFormat'}});
    reqs.push(fmt(70,76,1,2,'0.00'),fmt(70,75,2,6,'0.000'))}
@@ -565,7 +586,7 @@ async function generarEq(q,est){
   if(!r.ok)throw new Error('No se pudo exportar a Excel (HTTP '+r.status+')');
   const ex=await driveList(`'${dq(cAnio)}' in parents and name='${dq(nombre+'.xlsx')}' and trashed=false`);
   let blob=await r.blob();
-  try{blob=await arreglarImpresion(blob,tpl,{[hoja]:ARCHIVOS[t.archivo].area},t.certHoja)}catch(e){console.warn('No se pudo copiar la configuración de impresión',e)}
+  try{blob=await arreglarImpresion(blob,tpl,{[hoja]:ARCHIVOS[t.archivo].area},t.certHoja||(t.hojas&&HJ[0]))}catch(e){console.warn('No se pudo copiar la configuración de impresión',e)}
   // v53: al regenerar, si el nombre cambió, se reemplaza y RENOMBRA el archivo anterior del mismo equipo (si sigue en esta carpeta),
   // en vez de dejar dos archivos.
   let destino=ex[0]?.id;
@@ -853,7 +874,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v57';
+const VERSION='v58';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -926,7 +947,7 @@ function vEditor(){
  <div class="g2">${qi('equipo','Equipo')}${qi('marca','Fabricante / marca')}${qi('modelo','Modelo')}${qi('serie','Serie * (NI si no tiene)')}${qi('activo','N.º interno / activo','placeholder="NI"')}${qi('ubicacion','Ubicación')}</div></div>
  <div class="card"><div class="card-title">Condiciones ambientales</div>
  <div class="g2">${qi('tIni','Temp. inicial (°C)','inputmode="decimal"')}${qi('tFin','Temp. final (°C)','inputmode="decimal"')}${qi('hIni','HR inicial (%)','inputmode="decimal"')}${qi('hFin','HR final (%)','inputmode="decimal"')}</div></div>
- ${(A(q).extra||[]).length?`<div class="card"><div class="card-title">Datos del instrumento</div><div class="g2">${A(q).extra.map(x=>x.opts?`<label>${x.l}<select data-q="${x.k}"><option value="">—</option>${x.opts.map(o=>`<option ${q[x.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:capNeg(x,q)?`<label>${x.l}<div class="negw"><span>−</span><input data-q="${x.k}" value="${esc(String(q[x.k]||'').replace(/^\s*[-−]\s*/,''))}" inputmode="decimal" placeholder="Ej. 30"></div></label>`:qi(x.k,x.l,'inputmode="decimal"')).join('')}</div></div>`:''}
+ ${(A(q).extra||[]).length?`<div class="card"><div class="card-title">Datos del instrumento</div><div class="g2">${A(q).extra.filter(x=>!x.cond||x.cond(q)).map(x=>x.opts?`<label>${x.l}<select data-q="${x.k}"><option value="">—</option>${x.opts.map(o=>`<option ${q[x.k]===o?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:capNeg(x,q)?`<label>${x.l}<div class="negw"><span>−</span><input data-q="${x.k}" value="${esc(String(q[x.k]||'').replace(/^\s*[-−]\s*/,''))}" inputmode="decimal" placeholder="Ej. 30"></div></label>`:qi(x.k,x.l,x.texto?'':'inputmode="decimal"')).join('')}</div></div>`:''}
  ${SECC(t,q).map(sc=>seccionHtml(q,t,sc)).join('')}
  <div class="card" style="padding:12px 16px"><div id="avisoLec">${avisoLec(q)}</div>
  <p class="muted small" style="margin:${nFuera(q)?'10px':'0'} 0 0">Las casillas en rojo o naranja se alejan más del 10 % ${t.check==='prog'?'del valor nominal':'de las demás lecturas del mismo parámetro'}: revise si están bien digitadas. Los resultados definitivos los calcula la plantilla oficial.</p></div>
