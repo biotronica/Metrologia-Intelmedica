@@ -17,7 +17,7 @@
    document.body.appendChild(d)})}})();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v56</title>
+<title>Metrología · Intelmedica v57</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -203,7 +203,7 @@ const TIPOS={
  tens:{archivo:'tens',tipo:'Electroestimulador / TENS',equipo:'ELECTROESTIMULADOR',check:'prog',secciones:[
   secC('Canal 1 · frecuencia (Hz)',M4,[2,20,60,100,150].map((n,i)=>pto('t1f'+n,String(n),n,hFila(CDEF,139+i)))),
   secC('Canal 2 · frecuencia (Hz)',M4,[2,20,60,100,150].map((n,i)=>pto('t2f'+n,String(n),n,hFila(CDEF,146+i))),{cond:canal2})]},
- esfi:{archivo:'esfi',tipo:'Esfigmomanómetro',equipo:'ESFIGMOMANOMETRO',check:'prog',secciones:[{titulo:'Error de indicación (mmHg)',render:'rows',hdr:['Punto','Ref. (mmHg)'],cols:['1ª ↑','1ª ↓','2ª ↑','2ª ↓'],
+ esfi:{archivo:'esfi',tipo:'Esfigmomanómetro',equipo:'ESFIGMOMANOMETRO',certHoja:'CERTIFICADO ESFIGMOMANOMETRO',check:'prog',secciones:[{titulo:'Error de indicación (mmHg)',render:'rows',hdr:['Punto','Ref. (mmHg)'],cols:['1ª ↑','1ª ↓','2ª ↑','2ª ↓'],
   puntos:[0,50,100,150,200,250,300].map((n,i)=>pto('ef'+n,String(i+1),n,hFila(BCDE,42+i)))}]},
  espiro:{archivo:'espiro',tipo:'Espirómetro',equipo:'ESPIROMETRO',check:'prog',secciones:[secC('Volumen (L)',M4,[pto('evE','Espiración',3,hFila(CDEF,135)),pto('evI','Inspiración',3,hFila(CDEF,136))])]},
  holter:{archivo:'holter',tipo:'Holter',equipo:'HOLTER',check:'prog',secciones:[secC('Frecuencia cardiaca (lpm)',M4,[0,1,2,3,4].map(i=>pto('hfc'+i,'Punto '+(i+1),{cell:'B'+(134+i)},hFila(CDEF,134+i))))]},
@@ -565,7 +565,7 @@ async function generarEq(q,est){
   if(!r.ok)throw new Error('No se pudo exportar a Excel (HTTP '+r.status+')');
   const ex=await driveList(`'${dq(cAnio)}' in parents and name='${dq(nombre+'.xlsx')}' and trashed=false`);
   let blob=await r.blob();
-  try{blob=await arreglarImpresion(blob,tpl,{[hoja]:ARCHIVOS[t.archivo].area})}catch(e){console.warn('No se pudo copiar la configuración de impresión',e)}
+  try{blob=await arreglarImpresion(blob,tpl,{[hoja]:ARCHIVOS[t.archivo].area},t.certHoja)}catch(e){console.warn('No se pudo copiar la configuración de impresión',e)}
   // v53: al regenerar, si el nombre cambió, se reemplaza y RENOMBRA el archivo anterior del mismo equipo (si sigue en esta carpeta),
   // en vez de dejar dos archivos.
   let destino=ex[0]?.id;
@@ -650,7 +650,7 @@ function copiarAltos(dt,dO){
  altos.forEach((h,i)=>{if(filasO.has(i))return;const n=dO.createElementNS(NS_M,'row');n.setAttribute('r',String(i));poner(n,h);
   const sig=hijos(sdO,'row').find(x=>+x.getAttribute('r')>i);sdO.insertBefore(n,sig||null)})}
 
-async function arreglarImpresion(outBlob,tplBlob,areas){
+async function arreglarImpresion(outBlob,tplBlob,areas,activa){
  const JSZip=await cargarJSZip(),zO=await JSZip.loadAsync(outBlob),zT=await JSZip.loadAsync(tplBlob),P=new DOMParser(),S=new XMLSerializer();
  const O=await hojasDe(zO),Tp=await hojasDe(zT);
  const ctO=P.parseFromString(await zO.file('[Content_Types].xml').async('string'),'application/xml'),ctT=P.parseFromString(await zT.file('[Content_Types].xml').async('string'),'application/xml'),copiadas={};
@@ -688,6 +688,17 @@ async function arreglarImpresion(outBlob,tplBlob,areas){
   const a=areas&&areas[ho.nombre];if(a&&n.getAttribute('name')==='_xlnm.Print_Area')n.textContent=n.textContent.replace(/![^!]*$/,'!'+a);
   dnO.appendChild(n)});
  if(dnO&&!hijos(dnO,'definedName').length)wbO.removeChild(dnO);
+ // v57: plantillas con varias hojas (manómetros, esfigmomanómetro): el Excel abre en la hoja del CERTIFICADO, así se imprime directo.
+ const ha=activa&&O.H.find(h=>h.nombre===String(activa).trim()&&!h.oculta);
+ if(ha)try{let bv=hijos(wbO,'bookViews')[0];if(!bv){bv=O.wb.createElementNS(NS_M,'bookViews');insertarOrdenado(wbO,bv,ORDEN_WB)}
+  let wv=hijos(bv,'workbookView')[0];if(!wv){wv=O.wb.createElementNS(NS_M,'workbookView');bv.appendChild(wv)}
+  wv.setAttribute('activeTab',String(ha.i));wv.removeAttribute('firstSheet');
+  for(const h of O.H){if(!h.ruta||!zO.file(h.ruta))continue;const d=P.parseFromString(await zO.file(h.ruta).async('string'),'application/xml');
+   const sv=d.getElementsByTagNameNS(NS_M,'sheetView');let c=false;
+   [...sv].forEach(v=>{if(h===ha){v.setAttribute('tabSelected','1');if(v.hasAttribute('topLeftCell'))v.setAttribute('topLeftCell','A1');c=true}else if(v.hasAttribute('tabSelected')){v.removeAttribute('tabSelected');c=true}});
+   if(h===ha&&!sv.length){let svs=hijos(d.documentElement,'sheetViews')[0];if(!svs){svs=d.createElementNS(NS_M,'sheetViews');insertarOrdenado(d.documentElement,svs,ORDEN_WS)}const v=d.createElementNS(NS_M,'sheetView');v.setAttribute('tabSelected','1');v.setAttribute('workbookViewId','0');svs.appendChild(v);c=true}
+   if(c)zO.file(h.ruta,S.serializeToString(d),{createFolders:false})}
+ }catch(e){console.warn('No se pudo dejar activa la hoja del certificado',e)}
  zO.file('xl/workbook.xml',S.serializeToString(O.wb),{createFolders:false});
  // Excel de escritorio no abre el archivo si el ZIP trae entradas de carpeta ("xl/"): se quitan
  Object.keys(zO.files).forEach(n=>{if(zO.files[n].dir)delete zO.files[n]});
@@ -842,7 +853,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v56';
+const VERSION='v57';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
