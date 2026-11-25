@@ -17,7 +17,7 @@
    document.body.appendChild(d)})}})();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v62</title>
+<title>Metrología · Intelmedica v63</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -60,6 +60,7 @@ input:focus,select:focus{outline:2px solid var(--teal);border-color:var(--teal)}
 .lec input{margin:0;text-align:center;padding:10px 4px}.lec b{font-size:13px;color:var(--muted)}.lec .h{font-size:11.5px;color:var(--muted);text-align:center;font-weight:600}
 .lec5{gap:4px}.lec5 input{font-size:14px;padding:10px 1px;letter-spacing:-.3px}
 .lec input.bad{background:#fde4e6;border-color:var(--danger);color:var(--danger);font-weight:800;outline-color:var(--danger)}
+.bloqF{margin:14px 0 6px;padding:6px 10px;border-radius:8px;background:var(--navy,#0e2a47);color:#fff;font-weight:800;font-size:13px;letter-spacing:.3px}.bloqF:first-of-type{margin-top:0}.bloqF .muted{color:#c9d4e0;font-weight:600}
 .lec input.nr{background:#fff;color:#5b6b7b;font-weight:800;letter-spacing:.5px;font-style:italic}
 #nrBar{position:fixed;left:0;right:0;z-index:60;display:none;justify-content:flex-end;gap:8px;padding:6px 10px;background:#eef1f5;border-top:1px solid #d5dce4}#nrBar button{min-width:120px}
 .lec input.bad.real{background:#ffeccc;border-color:#d97a00;color:#a35400;outline-color:#d97a00}
@@ -365,7 +366,7 @@ const A=q=>ARCHIVOS[T(q).archivo];
 const SECC=(t,q)=>t.secciones.filter(sc=>!sc.cond||!q||sc.cond(q));
 const PUNTOS=(t,q)=>SECC(t,q).filter(sc=>!nrSec(q,sc)).flatMap(sc=>sc.puntos);
 function eqNuevo(prev){const t=T(),v={},mismo=prev&&(prev.tpl||ST.tpl)===ST.tpl;PUNTOS(t).forEach(p=>{v[p.prog.cell]=(mismo?prev?.v?.[p.prog.cell]:null)??String(p.prog.def??'')});
- const q={id:uid(),tpl:ST.tpl,certificado:'',acred:prev?.acred||'',equipo:t.equipo,marca:t.marca||'',modelo:t.modelo||'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:prev?.tIni||'',tFin:prev?.tFin||'',hIni:prev?.hIni||'',hFin:prev?.hFin||'',v,hecho:'',err:''};
+ const q={id:uid(),tpl:ST.tpl,certificado:'',acred:prev?.acred||'',equipo:t.equipo,marca:t.marca||'',modelo:t.modelo||'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:'',tFin:'',hIni:'',hFin:'',   /* v63: cada equipo con sus condiciones (no se copian del anterior) */v,hecho:'',err:''};
  (A().extra||[]).forEach(x=>q[x.k]=(mismo&&prev?.[x.k])||x.def||'');if(!mismo)q.ubicacion=prev?.ubicacion||'';q.mpa=T(q)===TIPOS.mvac&&(q.unidades==='kPa'||q.unidades==='MPa');return q}
 // Borradores de la versión anterior (solo flujómetro): se pasan al formato nuevo.
 (function(){(ST.eqs||[]).forEach(q=>{if(!q.tpl&&ST.tpl)q.tpl=ST.tpl})})();
@@ -632,7 +633,7 @@ async function generarEq(q,est){
   if(!destino){const ant=(/\/d\/([^/?#]+)/.exec(q.hecho||'')||[])[1];
    if(ant)try{const m=await api(`${DRV}/${encodeURIComponent(ant)}?supportsAllDrives=true&fields=id,parents,trashed`);if(!m.trashed&&(m.parents||[]).includes(cAnio))destino=ant}catch(e){if(e instanceof AuthError)throw e}}
   const fx=await subir(blob,{name:nombre+'.xlsx',parents:[cAnio]},MIME_XLSX,destino);
-  q.hecho=`https://drive.google.com/file/d/${fx.id}/view`;q.err='';q.cel='';q.archivo=nombre+'.xlsx';guardar();
+  q.hecho=`https://drive.google.com/file/d/${fx.id}/view`;q.err='';q.cel='';q.archivo=nombre+'.xlsx';q.fGen=ST.gen.fecha||hoy();guardar();
   idbPut(q.id,{name:nombre+'.xlsx',blob}).catch(()=>{});
  }finally{await borrarTemp(tmp.id)}
 }
@@ -918,7 +919,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v62';
+const VERSION='v63';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -947,11 +948,15 @@ function vCliente(){
  ${fi('gen','metrologo','Calibrado por',G.metrologo,'list="dlMet"')}<datalist id="dlMet">${METROLOGOS.map(m=>`<option value="${esc(m)}">`).join('')}</datalist></div></div>
  <div class="bottom"><div class="in"><button class="btn navy" data-a="paso" data-id="equipos" ${ST.cli.nombre.trim()&&ST.tpl?'':'disabled'} id="btnSig">Equipos →</button></div></div>`;
 }
+// v63: fecha de cada equipo (la de calibración con que se generó; los pendientes, la de la toma) y lista por bloques de fecha
+const fechaEq=q=>q.hecho?(q.fGen||(/(\d{4}-\d{2}-\d{2})\.xlsx$/.exec(q.archivo||'')||[])[1]||ST.gen.fecha||hoy()):(ST.gen.fecha||hoy());
+const porFecha=(L,fila)=>{const F=[...new Set(L.map(fechaEq))].sort();if(F.length<2)return L.map(fila).join('');
+ return F.map(f=>{const G=L.filter(q=>fechaEq(q)===f);return`<div class="bloqF">📅 ${esc(f)} · ${G.length} equipo${G.length>1?'s':''}${G.some(q=>!q.hecho)&&f===(ST.gen.fecha||hoy())?' <span class="muted">(incluye por generar)</span>':''}</div>`+G.map(fila).join('')}).join('')};
 function vEquipos(){
  const t=T(),cuenta=k=>ST.eqs.filter(q=>(q.tpl||ST.tpl)===k).length;
  return topbar('Equipos',`Paso 2 de 3 · ${esc(ST.cli.nombre||'Cliente')}`,'atrasCliente')+`<div class="content">
  <div class="card"><div class="card-title">Equipos tomados (${ST.eqs.length})</div>
- ${ST.eqs.map((q,i)=>`<div class="eq" data-a="editar" data-id="${q.id}"><div class="main"><div class="t">${q.certificado?`<span class="${certCls(q)}">${esc(cert(q))}</span>`:''}${i+1}. ${esc(q.equipo)} ${q.marca?'· '+esc(q.marca):''}</div><div class="s"><b>${esc(T(q).tipo)}</b> · Serie ${esc(q.serie||'—')}${q.activo?' · '+esc(q.activo):''}${q.ubicacion?' · '+esc(q.ubicacion):''}</div></div>${chip(q)}</div>`).join('')||'<div class="empty">Aún no hay equipos. Elija el tipo y pulse “+ Agregar”.</div>'}</div>
+ ${porFecha(ST.eqs,q=>{const i=ST.eqs.indexOf(q);return`<div class="eq" data-a="editar" data-id="${q.id}"><div class="main"><div class="t">${q.certificado?`<span class="${certCls(q)}">${esc(cert(q))}</span>`:''}${i+1}. ${esc(q.equipo)} ${q.marca?'· '+esc(q.marca):''}</div><div class="s"><b>${esc(T(q).tipo)}</b> · Serie ${esc(q.serie||'—')}${q.activo?' · '+esc(q.activo):''}${q.ubicacion?' · '+esc(q.ubicacion):''}</div></div>${chip(q)}</div>`})||'<div class="empty">Aún no hay equipos. Elija el tipo y pulse “+ Agregar”.</div>'}</div>
  <div class="card"><div class="card-title">Agregar equipo</div>
  <div class="tipos">${Object.entries(TIPOS).map(([k,x])=>`<button class="tipo ${ST.tpl===k?'on':''}" data-a="tipo" data-id="${k}"><b>${esc(x.tipo)}</b><span class="small muted">${cuenta(k)?cuenta(k)+' tomado(s)':ARCHIVOS[x.archivo].nombre.split(' ')[0]}</span></button>`).join('')}</div>
  <p class="muted small" style="margin:8px 0">Cambiar de tipo no borra los equipos ya tomados.</p>
@@ -1008,7 +1013,7 @@ function vGenerar(){
  <div class="small">${[...new Set(ST.eqs.map(subCarpeta))].map(x=>`📁 Documentos compartidos › <b>${CONFIG.CARPETA_METRO}</b> › <b>${esc(carpetaToma())}</b> › <b>${esc(x)}</b>`).join('<br>')||'📁 Documentos compartidos › <b>'+CONFIG.CARPETA_METRO+'</b> › <b>'+esc(carpetaToma())+'</b> › (tipo de equipo)'}</div>
  <div class="muted small" style="margin-top:4px">Si las carpetas no existen, la app las crea.</div></div>
  <div class="card"><div class="card-title">Equipos</div>
- ${ST.eqs.map(q=>`<div class="eq" style="cursor:default"><div class="main"><div class="t">${q.certificado?`<span class="${certCls(q)}">${esc(cert(q))}</span>`:''}${esc(q.equipo)}${q.marca?' · '+esc(q.marca):''} · S/N ${esc(q.serie||'—')}${q.activo&&!/^ni$/i.test(q.activo)?' · CÓD. '+esc(q.activo):''}</div><div class="s">${q.err?`<span style="color:var(--danger)">${esc(q.err)}</span>`:q.hecho?`<a href="${esc(q.hecho)}" target="_blank" rel="noopener">📄 Abrir Excel en Drive</a>`:!confirmado(q)?`<span style="color:var(--danger)">${nFuera(q)} lectura(s) fuera de ±10 % (${esc(txtFuera(q))}): corrija o confirme en el equipo</span>`:completo(q)?(nFuera(q)?'Listo · lecturas fuera de tolerancia confirmadas':'Listo para generar'):soloVac(q)?`<span style="color:#8a6d00">${vacios(q).length} campo(s) vacío(s): ¿llenarlos o no tenerlos en cuenta?</span>`:'Falta: '+esc(faltan(q).join(', '))}</div></div>${chip(q)}${soloVac(q)?`<button class="btn sm" data-a="vacios1" data-id="${q.id}">Campos vacíos</button>`:generable(q)?`<button class="btn sm ${q.hecho?'ghost':''}" data-a="gen1" data-id="${q.id}">${q.hecho?'🔄 Regenerar':'Generar'}</button>`:`<button class="btn sm ghost" data-a="editar" data-id="${q.id}">${completo(q)?'Revisar':'Completar'}</button>`}</div>`).join('')}
+ ${porFecha(ST.eqs,q=>`<div class="eq" style="cursor:default"><div class="main"><div class="t">${q.certificado?`<span class="${certCls(q)}">${esc(cert(q))}</span>`:''}${esc(q.equipo)}${q.marca?' · '+esc(q.marca):''} · S/N ${esc(q.serie||'—')}${q.activo&&!/^ni$/i.test(q.activo)?' · CÓD. '+esc(q.activo):''}</div><div class="s">${q.err?`<span style="color:var(--danger)">${esc(q.err)}</span>`:q.hecho?`<a href="${esc(q.hecho)}" target="_blank" rel="noopener">📄 Abrir Excel en Drive</a>`:!confirmado(q)?`<span style="color:var(--danger)">${nFuera(q)} lectura(s) fuera de ±10 % (${esc(txtFuera(q))}): corrija o confirme en el equipo</span>`:completo(q)?(nFuera(q)?'Listo · lecturas fuera de tolerancia confirmadas':'Listo para generar'):soloVac(q)?`<span style="color:#8a6d00">${vacios(q).length} campo(s) vacío(s): ¿llenarlos o no tenerlos en cuenta?</span>`:'Falta: '+esc(faltan(q).join(', '))}</div></div>${chip(q)}${soloVac(q)?`<button class="btn sm" data-a="vacios1" data-id="${q.id}">Campos vacíos</button>`:generable(q)?`<button class="btn sm ${q.hecho?'ghost':''}" data-a="gen1" data-id="${q.id}">${q.hecho?'🔄 Regenerar':'Generar'}</button>`:`<button class="btn sm ghost" data-a="editar" data-id="${q.id}">${completo(q)?'Revisar':'Completar'}</button>`}</div>`)}
  ${(n=>n&&listos?`<button class="btn ghost block" data-a="regenTodos" style="margin-top:6px">🔄 Regenerar todos (${n})</button><p class="muted small" style="margin:6px 0 0">Vuelve a generar los Excel ya generados con los datos actuales; en Drive se reemplazan.</p>`:'')(ST.eqs.filter(q=>q.hecho&&generable(q)).length)}
  <div class="status" id="estado"></div></div>
  ${inc?`<p class="muted small">${inc} equipo(s) incompleto(s) no se generan.</p>`:''}
