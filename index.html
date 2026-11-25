@@ -17,7 +17,7 @@
    document.body.appendChild(d)})}})();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v60</title>
+<title>Metrología · Intelmedica v61</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -60,7 +60,7 @@ input:focus,select:focus{outline:2px solid var(--teal);border-color:var(--teal)}
 .lec input{margin:0;text-align:center;padding:10px 4px}.lec b{font-size:13px;color:var(--muted)}.lec .h{font-size:11.5px;color:var(--muted);text-align:center;font-weight:600}
 .lec5{gap:4px}.lec5 input{font-size:14px;padding:10px 1px;letter-spacing:-.3px}
 .lec input.bad{background:#fde4e6;border-color:var(--danger);color:var(--danger);font-weight:800;outline-color:var(--danger)}
-.lec input.nr{background:#eef1f5;color:#5b6b7b;font-weight:800;letter-spacing:.5px}
+.lec input.nr{background:#fff;color:#5b6b7b;font-weight:800;letter-spacing:.5px;font-style:italic}
 #nrBar{position:fixed;left:0;right:0;z-index:60;display:none;justify-content:flex-end;gap:8px;padding:6px 10px;background:#eef1f5;border-top:1px solid #d5dce4}#nrBar button{min-width:120px}
 .lec input.bad.real{background:#ffeccc;border-color:#d97a00;color:#a35400;outline-color:#d97a00}
 .ley{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px;border:2px solid}.ley.dig{background:#fde4e6;border-color:var(--danger)}.ley.real{background:#ffeccc;border-color:#d97a00}
@@ -69,7 +69,7 @@ input:focus,select:focus{outline:2px solid var(--teal);border-color:var(--teal)}
 .negw{position:relative}.negw span{position:absolute;left:12px;top:50%;transform:translateY(-55%);font-weight:800;font-size:18px;color:var(--navy);pointer-events:none}.negw input{padding-left:28px}
 input[data-g]:not([type=date]),input[data-q],input[data-cell],select[data-g]{text-transform:uppercase}
 .dlg-fondo{position:fixed;inset:0;background:rgba(10,20,40,.55);display:flex;align-items:flex-end;justify-content:center;z-index:200;padding:16px}.dlg{background:#fff;border-radius:16px;padding:18px;max-width:460px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3)}.dlg-t{font-weight:800;font-size:17px;margin-bottom:6px}.dlg-b p{margin:6px 0}.dlg-bt{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-input.vacio{background:#fff6cc!important;border-color:#e0b100!important}
+input.vacio,.lec input.inc{background:#d5dbe2!important;border-color:#7d8b99!important;border-style:dashed!important}
 .ver{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.18);color:#fff;vertical-align:middle;margin-left:4px;letter-spacing:.3px}
 .tipos{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tipo{border:1.5px solid var(--border);background:#fff;border-radius:12px;padding:12px 10px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:3px}
 .tipo b{font-size:14.5px;color:var(--navy)}.tipo span{font-size:11px;color:var(--muted)}.tipo.on{border-color:var(--teal);background:#e7f5f6;box-shadow:0 0 0 2px var(--teal) inset}
@@ -202,7 +202,18 @@ const nLec=(q,p)=>p.lec.filter(l=>val(q,l.cell)!==null).length;
 // 2 o más lecturas (con una sola no se calcula la incertidumbre). ECG (frecuencia) y esfigmomanómetro usan cada lectura
 // suelta: si una es NR o falta, la fila de ese punto en el certificado queda en blanco (p.certBlank).
 const esNR=(q,c)=>String(q.v?.[c]??'').trim().toUpperCase()==='NR';
-const nrOkP=p=>p&&p.lec.length>=3;
+const nrOkP=p=>!!p;
+// v61: un punto puede quedar todo en NR (o con una sola lectura): su fila del certificado queda en blanco.
+// Casillas de esa fila en cada plantilla (calculadas de las fórmulas y verificadas con LibreOffice): «CDEFG68» = C68:G68.
+const CERT_NR={"flujo":["FLUJOMETRO",{"nB":"CDEFG68","nC":"CDEFG69","nD":"CDEFG70"}],"mbaja":["MANOMETRO BAJA MODIFICADO",{"r56":"CDEFG74","r57":"CDEFG75","r58":"CDEFG76","r59":"CDEFG77","r60":"CDEFG78","r61":"CDEFG79"}],"malta":["MANOMETRO ALTA MODIFICADO",{"r42":"CDEFG74","r43":"CDEFG75","r44":"CDEFG76","r45":"CDEFG77","r46":"CDEFG78","r47":"CDEFG79"}],"mvac":["MANOVACUOMETRO MODIFICADO",{"r70":"CDEFG74","r71":"CDEFG75","r72":"CDEFG76","r73":"CDEFG77","r74":"CDEFG78","r75":"CDEFG79"}],"mon":["MONITOR",{"mB210":"CDEFG69","mC210":"CDEFG75","mD210":"CDEFG81","mE210":"DEFG87 CDEFG131","mF210":"CDEFG137","mB222":"CDEFG70","mC222":"CDEFG76","mD222":"CDEFG82","mE222":"CDEFG132","mF222":"CDEFG138","mB234":"CDEFG68","mC234":"CDEFG74","mD234":"CDEFG80","mE234":"CDEFG130","mF234":"CDEFG136","sB245":"CDEFG142","sC245":"CDEFG143","sD245":"CDEFG144","sE245":"CDEFG145"}],"vent":["VENTILADOR",{"c1p0":"CDEFGH69","c1p1":"CDEFGH70","c1p2":"CDEFGH71","c1p3":"CDEFGH72","c1p4":"CDEFGH73","c1p5":"CDEFGH74","c1p6":"CDEFGH75","c1p7":"CDEFGH76","c1p8":"CDEFGH77","c2p0":"CDEFGH81","c2p1":"CDEFGH82","c2p2":"CDEFGH83","c2p3":"CDEFGH84","c2p4":"CDEFGH85","c2p5":"CDEFGH86","c2p6":"CDEFGH87","c2p7":"CDEFGH88","c2p8":"CDEFGH89","c3p0":"CDEFGH93","c3p1":"CDEFGH94","c3p2":"CDEFGH95","c3p3":"CDEFGH96","c3p4":"CDEFGH97","c3p5":"CDEFGH98","c3p6":"CDEFGH99","c3p7":"CDEFGH100","c3p8":"CDEFGH101"}],"bomba":["BOMBA",{"b10f":"EFGI77","b10v":"EFGI69","b11f":"EFGI78","b11v":"EFGI70","b12f":"EFGI79","b12v":"EFGI71","b20f":"EFGI95","b20v":"EFGI87","b21f":"EFGI96","b21v":"EFGI88","b22f":"EFGI97","b22v":"EFGI89"}],"desfi":["DESFIBRILADOR",{"d1e":"DEFGH69","d1v":"DEGH97","d1i":"DEGH98","d2e":"DEFGH72","d2v":"DEGH100","d2i":"DEGH101","d3e":"DEFGH75","d3v":"DEGH103","d3i":"DEGH104","d4e":"DEFGH78","d4v":"DEGH106","d4i":"DEGH107","dtt":"CDFG122","dte":"DEFGH81","dtv":"DEGH109","dti":"DEGH110","dat":"C128","dae":"CDF129","dav":"CF130","dai":"CF131","dst":"C135","dse":"CDF136","dsv":"CF137","dsi":"CF138","dfc30":"CDEFG88","dfc60":"CDEFG89","dfc80":"CDEFG90","dfc120":"CDEFG91","dfc240":"CDEFG92"}],"bisturi":["PLANTILLA",{"pCorte1a":"DEGH71","pCorte1b":"DEGH72","pCorte2a":"DEGH91","pCorte2b":"DEGH92","pBlend1a":"DEGH77","pBlend1b":"DEGH78","pBlend2a":"DEGH97","pBlend2b":"DEGH98","pCoag1a":"DEGH83","pCoag1b":"DEGH84","pCoag2a":"DEGH103","pCoag2b":"DEGH104","pBipa":"DEGH111","pBipb":"DEGH112"}],"tens":["TENS",{"t1f2":"CDFGI68","t1f20":"CDFGI69","t1f60":"CDFGI70","t1f100":"CDFGI71","t1f150":"CDFGI72","t2f2":"CDFGI76","t2f20":"CDFGI77","t2f60":"CDFGI78","t2f100":"CDFGI79","t2f150":"CDFGI80"}],"espiro":["ESPIROMETRO",{"evE":"CDEFG68","evI":"CDEFG72"}],"holter":["HOLTER",{"hfc0":"CDEFG69","hfc1":"CDEFG70","hfc2":"CDEFG71","hfc3":"CDEFG72","hfc4":"CDEFG73"}],"incu":["INCUBADORA",{"i33e":"BCD71","i33s1":"D71 BC72","i33s2":"D71 BC73","i33s3":"D71 BC74","i33h":"CDFG120","i33f":"CDFG121","i33r":"CDFG122","i35e":"BCD79","i35s1":"D79 BC80","i35s2":"D79 BC81","i35s3":"D79 BC82","i35h":"CDFG124","i35f":"CDFG125","i35r":"CDFG126","i37e":"BCD87","i37s1":"D87 BC88","i37s2":"D87 BC89","i37s3":"D87 BC90","i37h":"CDFG128","i37f":"CDFG129","i37r":"CDFG130"}],"nebu":["PLANTILLA",{"nfl":"CDGI68","npr":"CDGI72"}],"pulsi":["PULSIOXIMETRO",{"pfc40":"CDEFG68","pfc60":"CDEFG69","pfc130":"CDEFG70","psp85":"CDEFG74","psp90":"CDEFG75","psp95":"CDEFG76","psp99":"CDEFG77"}],"tensio":["TENSIOMENTRO DIGITAL",{"ts0":"CDEFG69","td0":"CDEFG75","tf0":"CDEFG81","ts1":"CDEFG70","td1":"CDEFG76","tf1":"CDEFG82","ts2":"CDEFG68","td2":"CDEFG74","tf2":"CDEFG80"}]};
+const certCeldas=(k,p)=>{if(p.certF){const h=p.lec[0].cell.split('!')[0];return['C','D','E','F','G'].map(c=>`${h}!${c}${p.certF}`)}if(p.certBlank)return p.certBlank;
+ const m=CERT_NR[k];if(!m||!m[1][p.id])return[];return m[1][p.id].split(' ').flatMap(g=>g.includes(',')?g.split(','):(x=>{const r=x.replace(/^[A-Z]+/,''),cs=x.slice(0,x.length-r.length);return cs.split('').map(c=>c+r)})(g)).map(c=>m[0]+'!'+c)};
+// Manómetros: como el esfigmomanómetro, la histéresis usa cada lectura suelta → si falta una (NR), la fila queda en blanco.
+// Y el factor k de TODO el certificado sale del punto 2: ese punto debe tener todas sus lecturas.
+const CLAVE_NR={mbaja:'r57',malta:'r43',mvac:'r71'},ESTRICTO=new Set(['mbaja','malta','mvac']);
+const estricto=(q,p)=>!!p.certBlank||ESTRICTO.has(q.tpl);
+const esClave=(q,p)=>CLAVE_NR[q.tpl]===p.id;
+const empezado=(q,p)=>p.lec.some(l=>val(q,l.cell)!==null||esNR(q,l.cell));
 const TIPOS={
  flujo:{archivo:'flujo',tipo:'Flujómetro',equipo:'FLUJOMETRO',check:'prog',secciones:[{titulo:'Lecturas del patrón (L/min)',render:'cols',filas:['M1','M2','M3','M4','M5'],
   puntos:['B','C','D'].map((c,j)=>({id:'n'+c,label:'Valor nominal',prog:{cell:c+'149',def:[2,10,15][j]},lec:[150,151,152,153,154].map(f=>({cell:c+f}))}))}]},
@@ -376,7 +387,7 @@ const nomTxt=(q,p)=>{const n=p.prog.calc?p.prog.calc(q):p.prog.def;return n===nu
 // opcionales, pero si se llena una lectura hay que llenar las ocho.
 const obligatorio=(t,q,p)=>(!p.opcional&&(t.check==='prog'||val(q,p.prog.cell)!==null))||p.lec.some(l=>String(q.v[l.cell]??'').trim()!=='');   // v58: opcional (huevo 3D, volumen) solo si se empezó
 // v59: ecógrafo (minLec): una prueba con menos de 2 medidas no se acepta (se completa o se marca NR); con 2 o 3 se pregunta al cerrar.
-const pocos=q=>{const t=T(q);return PUNTOS(t,q).filter(p=>obligatorio(t,q,p)&&((t.minLec&&nLec(q,p)<t.minLec)||(!p.certBlank&&p.lec.some(l=>esNR(q,l.cell))&&nLec(q,p)<2)))};
+const pocos=q=>{const t=T(q);return PUNTOS(t,q).filter(p=>esClave(q,p)&&nLec(q,p)<p.lec.length)};
 const faltanLec=(q)=>{const t=T(q),pc=pocos(q);return PUNTOS(t,q).filter(p=>obligatorio(t,q,p)&&!pc.includes(p)).reduce((a,p)=>a+p.lec.filter(l=>val(q,l.cell)===null&&!esNR(q,l.cell)).length,0)};
 const faltaProg=q=>{const t=T(q);return t.check==='prog'&&PUNTOS(t,q).some(p=>!p.prog.fijo&&val(q,p.prog.cell)===null)};
 // Manovacuómetro: la capacidad máxima es de vacío, se escribe con "-" delante automáticamente.
@@ -408,7 +419,7 @@ const vacios=q=>{const t=T(q),L=[];
  const pc=pocos(q);PUNTOS(t,q).filter(p=>obligatorio(t,q,p)&&!pc.includes(p)).forEach(p=>p.lec.forEach(l=>{if(val(q,l.cell)===null&&!esNR(q,l.cell))L.push(l.cell)}));
  return L};
 const vaciosOk=q=>{const v=vacios(q);return!v.length||q.vaciosOk===v.join(';')};
-const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(!certAnioOk(q)?`año del certificado (después del guion debe ir -${aa()})`:q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q,vaciosOk(q)),...(T(q).valida?T(q).valida(q):[]),(n=>n&&(T(q).minLec?`${n} prueba(s) con menos de ${T(q).minLec} medidas (complete o marque NR)`:`${n} punto(s) con menos de 2 lecturas (no todas pueden ser NR)`))(pocos(q).length),!vaciosOk(q)&&faltaProg(q)&&'valores nominales',!vaciosOk(q)&&(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
+const faltan=q=>[!q.acred&&'tipo de sticker (acreditado / no acreditado)',!String(q.certificado).trim()&&'N.º de certificado',q.acred&&String(q.certificado).trim()&&!certOk(q)&&(!certAnioOk(q)?`año del certificado (después del guion debe ir -${aa()})`:q.acred==='si'?'N.º de certificado válido (solo números)':'N.º de certificado válido (número-AA)'),certRep(q)&&'certificado repetido',!String(q.serie).trim()&&'serie',...faltaExtra(q,vaciosOk(q)),...(T(q).valida?T(q).valida(q):[]),(n=>n&&'el punto 2 necesita sus 4 lecturas, sin NR (de él sale el factor k de todo el certificado)')(pocos(q).length),!vaciosOk(q)&&faltaProg(q)&&'valores nominales',!vaciosOk(q)&&(n=>n&&n+' lectura(s)')(faltanLec(q))].filter(Boolean);
 // Lo que falta SIN contar los campos vacíos de la toma de datos (para saber si solo faltan esos).
 const faltanFijos=q=>{const o=q.vaciosOk;q.vaciosOk=vacios(q).join(';');const f=faltan(q);q.vaciosOk=o;return f};
 const completo=q=>!faltan(q).length;
@@ -433,6 +444,7 @@ const n=chkV(q,p);if(n===null)return'dig';
  if(!o.length)return'real';
  const md=mediana(o);if(md===0)return v===0?'real':'dig';
  return Math.abs(v-md)/Math.abs(md)>TOL?'dig':'real'}
+const incC=(q,p,l)=>val(q,l.cell)===null&&!esNR(q,l.cell)&&empezado(q,p);   // v61: casilla incompleta (gris)
 const claseFuera=(q,p,l)=>fuera(q,p,l)?'bad '+tipoFuera(q,p,l):'';
 const cuentaFuera=q=>{const c={dig:0,real:0};PUNTOS(T(q),q).forEach(p=>p.lec.forEach(l=>{if(fuera(q,p,l))c[tipoFuera(q,p,l)]++}));return c};
 const txtFuera=q=>{const c=cuentaFuera(q);return[c.dig&&`${c.dig} posible(s) error(es) de digitación`,c.real&&`${c.real} fuera de tolerancia`].filter(Boolean).join(' · ')};
@@ -576,16 +588,18 @@ async function generarEq(q,est){
   // Información del equipo y del cliente (serie, N.º interno, modelo, teléfono…): va como TEXTO, para que
   // Sheets no la convierta en número y se conserven los ceros de adelante (p. ej. serie 00123).
   // v58: ecógrafo → los datos generales van en la hoja de cada transductor elegido; «HOJA!celda» va solo a esa hoja
-  const HJ=t.hojas?t.hojas(q):[hoja],d=[],put=(a,v)=>{const m=/^(.+)!([A-Z]+\d+)$/.exec(a);if(m)d.push({range:`'${m[1]}'!${m[2]}`,values:[[v]]});else HJ.forEach(h=>d.push({range:`'${h}'!${a}`,values:[[v]]}))},tx=v=>/^[0-9+\-=.,]/.test(v)?"'"+v:v,txt=v=>{v=MAY(v).trim();return v===''?'NI':tx(v)};
+  const HJ=t.hojas?t.hojas(q):[hoja],tH=n=>(meta.sheets.find(s=>s.properties.title.trim()===String(n).trim())||{properties:{title:n}}).properties.title,d=[],put=(a,v)=>{const m=/^(.+)!([A-Z]+\d+)$/.exec(a);if(m)d.push({range:`'${tH(m[1])}'!${m[2]}`,values:[[v]]});else HJ.forEach(h=>d.push({range:`'${h}'!${a}`,values:[[v]]}))},tx=v=>/^[0-9+\-=.,]/.test(v)?"'"+v:v,txt=v=>{v=MAY(v).trim();return v===''?'NI':tx(v)};
   put(C.nombre,tx(MAY(K.nombre).trim()));put(C.contacto,tx(MAY(K.contacto).trim()));put(C.direccion,tx(MAY(K.direccion).trim()));put(C.telefono,tx(MAY(K.telefono).trim()));
   put(C.lugar,G.lugar==='En Sitio'?'EN SITIO':MAY(a.lab));if(G.metrologo)put(C.metrologo,MAY(G.metrologo));put(C.recepcion,G.recepcion);put(C.fecha,G.fecha);put(C.certificado,"'"+cert(q));
   ['tIni','tFin','hIni','hFin'].forEach(k=>{const n=num(q[k]);put(C[k],n===null?'':n)});
   put(C.equipo,txt(q.equipo));put(C.serie,txt(q.serie));put(C.marca,txt(q.marca));put(C.activo,txt(q.activo));put(C.modelo,txt(q.modelo));put(C.ubicacion,txt(q.ubicacion));
   (a.extra||[]).filter(x=>x.cell&&(!x.cond||x.cond(q))).forEach(x=>put(x.cell,x.texto?txt(q[x.k]):x.num?(capNeg(x,q)&&num(q[x.k])!==null?-Math.abs(num(q[x.k])):num(q[x.k])):String(q[x.k]||'')));
-  PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();if(!p.prog.fijo)put(p.prog.cell,num(pv)!==null?num(pv):(MAY(pv)||(t.check==='prog'?'':'NI')));const nr=nrP(q,p),emp=nLec(q,p)>0;p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,nr||esNR(q,l.cell)?'NR':n===null?(emp?'NR':''):n)});   // v59/v60: lectura NR o que falta → «NR» (vacía, la plantilla la toma como 0)
-   if(p.certBlank&&p.lec.some(l=>val(q,l.cell)===null))p.certBlank.forEach(c=>put(c,''));   // v60: ECG/esfigmo: fila del punto en blanco
-   // v59: ecógrafo: prueba NR o sin medidas → la fila del certificado queda en blanco (si no, saldría #DIV/0!)
-   if(p.certF&&(nr||!nLec(q,p))){const h=p.lec[0].cell.split('!')[0];if(HJ.includes(h))['C','D','E','F','G'].forEach(c=>put(`${h}!${c}${p.certF}`,''))}});
+  const actP=new Set(PUNTOS(t,q).map(p=>p.id));
+  PUNTOS(t).forEach(p=>{const pv=String(q.v[p.prog.cell]??'').trim();if(!p.prog.fijo)put(p.prog.cell,num(pv)!==null?num(pv):(MAY(pv)||(t.check==='prog'?'':'NI')));const nr=nrP(q,p),emp=empezado(q,p);p.lec.forEach(l=>{const n=val(q,l.cell);put(l.cell,nr||esNR(q,l.cell)?'NR':n===null?(emp?'NR':''):n)});   // v59/v60: lectura NR o que falta → «NR» (vacía, la plantilla la toma como 0)
+   // v61: punto activo con menos de 2 lecturas (todo NR, una sola o sin datos aceptados) → su fila del certificado en blanco;
+   // ECG, esfigmo y manómetros: basta con que falte una. Ecógrafo: solo en las hojas de los transductores elegidos.
+   const act=nr||actP.has(p.id),fal=nr||nLec(q,p)<2||(estricto(q,p)&&p.lec.some(l=>val(q,l.cell)===null));
+   if(act&&fal)certCeldas(q.tpl,p).forEach(c=>{if(!t.hojas||HJ.includes(c.split('!')[0]))put(c,'')})});
   est('Escribiendo los datos…');
   await api(SH+tmp.id+'/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'USER_ENTERED',data:d})});
   // Manómetros: se deja visible la hoja del certificado que corresponde al tipo elegido.
@@ -895,7 +909,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v60';
+const VERSION='v61';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -940,7 +954,7 @@ const avisoLec=q=>{const n=nFuera(q);if(!n)return'';const c=cuentaFuera(q);retur
  ${c.dig?`<br><span class="ley dig"></span><b>${c.dig} en rojo: posible error de digitación.</b> No coinciden con las demás lecturas del mismo punto, o la coma o el signo parecen equivocados. Revise y corrija.`:''}
  ${c.real?`<br><span class="ley real"></span><b style="color:#a35400">${c.real} en naranja: fuera de tolerancia real.</b> <span style="color:#a35400">Coinciden con las demás lecturas del punto, pero todas se alejan más del 10 % del valor nominal: el equipo está descalibrado.</span>`:''}
  <br>Si todas son reales, confírmelo:<label style="display:flex;gap:8px;align-items:center;margin:8px 0 0;color:var(--danger)"><input type="checkbox" data-conf="1" style="width:22px;height:22px;margin:0" ${confirmado(q)?'checked':''}> Confirmo que las lecturas marcadas (rojo y naranja) son reales y se deben certificar así</label></div>`};
-const inC=(q,p,l)=>`<input data-cell="${l.cell}" data-p="${p.id}" ${lecKPa(q)?'data-kpa="1" ':''}value="${esc(lecKPa(q)?fmtMPa(q.v[l.cell]):(q.v[l.cell]??''))}" inputmode="decimal" placeholder="${lecKPa(q)?'kPa':'—'}" class="${claseFuera(q,p,l)}${esNR(q,l.cell)?' nr':''}">`;
+const inC=(q,p,l)=>`<input data-cell="${l.cell}" data-p="${p.id}" ${lecKPa(q)?'data-kpa="1" ':''}value="${esc(lecKPa(q)?fmtMPa(q.v[l.cell]):(q.v[l.cell]??''))}" inputmode="decimal" placeholder="${lecKPa(q)?'kPa':'—'}" class="${claseFuera(q,p,l)}${esNR(q,l.cell)?' nr':''}${incC(q,p,l)?' inc':''}">`;
 const inP=(q,p)=>p.prog.fijo?`<span class="st" style="font-weight:800;color:var(--navy)">${esc(nomTxt(q,p))}</span>`:`<input data-cell="${p.prog.cell}" data-p="${p.id}" data-prog="1" value="${esc(q.v[p.prog.cell]??'')}" ${T(q).check==='prog'?'inputmode="decimal"':''}>`;
 function seccionHtml(q,t,sc){
  if(sc.nr&&nrSec(q,sc))return`<div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>${esc(sc.titulo)}</span><button class="btn sm ghost" data-a="nrSec" data-id="${sc.id}">Quitar NR</button></div><p style="margin:4px 0 0;font-weight:800;color:var(--navy)">NR · No Registra</p><p class="muted small" style="margin:4px 0 0">En el certificado esta prueba queda en blanco.</p></div>`;
@@ -1133,7 +1147,7 @@ const ACT={
 document.addEventListener('click',ev=>{const b=ev.target.closest('[data-a]');if(!b||b.disabled)return;if(b.tagName==='A'&&b.href)return;ev.preventDefault();ACT[b.dataset.a]?.(b.dataset.id,b)});
 function refrescarLec(q,pid){
  const t=T(q),pm=new Map(PUNTOS(t).map(p=>[p.id,p]));
- document.querySelectorAll('[data-cell]:not([data-prog])').forEach(x=>{const p=pm.get(x.dataset.p);const l=p&&p.lec.find(l=>l.cell===x.dataset.cell);if(l){x.classList.remove('bad','dig','real');const c=claseFuera(q,p,l);if(c)x.classList.add(...c.split(' '))}});
+ document.querySelectorAll('[data-cell]:not([data-prog])').forEach(x=>{const p=pm.get(x.dataset.p);const l=p&&p.lec.find(l=>l.cell===x.dataset.cell);if(l){x.classList.remove('bad','dig','real');x.classList.toggle('nr',esNR(q,l.cell));x.classList.toggle('inc',incC(q,p,l));const c=claseFuera(q,p,l);if(c)x.classList.add(...c.split(' '))}});
  const p=pm.get(pid);if(p){const s=statsTxt(q,p);if(typeof s==='string'){const e=$('#ss_'+p.id);if(e)e.innerHTML=s}else{const a=$('#sp_'+p.id),b=$('#se_'+p.id),c=$('#ss_'+p.id);if(a)a.textContent=s.p;if(b)b.textContent=s.e;if(c)c.innerHTML=`Prom. <b>${s.p}</b> · Error <b>${s.e}</b>${mpaTxt(q,p)}`}}
  const av=$('#avisoLec');if(av)av.innerHTML=avisoLec(q);
 }
