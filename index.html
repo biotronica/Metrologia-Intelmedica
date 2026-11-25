@@ -17,7 +17,7 @@
    document.body.appendChild(d)})}})();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v63</title>
+<title>Metrología · Intelmedica v64</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -366,7 +366,7 @@ const A=q=>ARCHIVOS[T(q).archivo];
 const SECC=(t,q)=>t.secciones.filter(sc=>!sc.cond||!q||sc.cond(q));
 const PUNTOS=(t,q)=>SECC(t,q).filter(sc=>!nrSec(q,sc)).flatMap(sc=>sc.puntos);
 function eqNuevo(prev){const t=T(),v={},mismo=prev&&(prev.tpl||ST.tpl)===ST.tpl;PUNTOS(t).forEach(p=>{v[p.prog.cell]=(mismo?prev?.v?.[p.prog.cell]:null)??String(p.prog.def??'')});
- const q={id:uid(),tpl:ST.tpl,certificado:'',acred:prev?.acred||'',equipo:t.equipo,marca:t.marca||'',modelo:t.modelo||'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:'',tFin:'',hIni:'',hFin:'',   /* v63: cada equipo con sus condiciones (no se copian del anterior) */v,hecho:'',err:''};
+ const q={id:uid(),fToma:fLocal(Date.now()),tpl:ST.tpl,certificado:'',acred:prev?.acred||'',equipo:t.equipo,marca:t.marca||'',modelo:t.modelo||'',serie:'',activo:'',ubicacion:prev?.ubicacion||'',tIni:'',tFin:'',hIni:'',hFin:'',   /* v63: cada equipo con sus condiciones (no se copian del anterior) */v,hecho:'',err:''};
  (A().extra||[]).forEach(x=>q[x.k]=(mismo&&prev?.[x.k])||x.def||'');if(!mismo)q.ubicacion=prev?.ubicacion||'';q.mpa=T(q)===TIPOS.mvac&&(q.unidades==='kPa'||q.unidades==='MPa');return q}
 // Borradores de la versión anterior (solo flujómetro): se pasan al formato nuevo.
 (function(){(ST.eqs||[]).forEach(q=>{if(!q.tpl&&ST.tpl)q.tpl=ST.tpl})})();
@@ -919,7 +919,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v63';
+const VERSION='v64';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -948,10 +948,12 @@ function vCliente(){
  ${fi('gen','metrologo','Calibrado por',G.metrologo,'list="dlMet"')}<datalist id="dlMet">${METROLOGOS.map(m=>`<option value="${esc(m)}">`).join('')}</datalist></div></div>
  <div class="bottom"><div class="in"><button class="btn navy" data-a="paso" data-id="equipos" ${ST.cli.nombre.trim()&&ST.tpl?'':'disabled'} id="btnSig">Equipos →</button></div></div>`;
 }
-// v63: fecha de cada equipo (la de calibración con que se generó; los pendientes, la de la toma) y lista por bloques de fecha
-const fechaEq=q=>q.hecho?(q.fGen||(/(\d{4}-\d{2}-\d{2})\.xlsx$/.exec(q.archivo||'')||[])[1]||ST.gen.fecha||hoy()):(ST.gen.fecha||hoy());
+// v64: bloques por el DÍA EN QUE SE TOMÓ cada equipo (no por la fecha de calibración de la toma, que suele ser la misma
+// para todos). Equipos nuevos: q.fToma; los anteriores: el código del equipo (uid) guarda el instante en que se agregó.
+const fLocal=ms=>{const d=new Date(ms);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const fechaEq=q=>{if(q.fToma)return q.fToma;const m=/^q([0-9a-z]{8})/.exec(q.id||''),t=m?parseInt(m[1],36):NaN;return t>1.6e12&&t<4e12?fLocal(t):(ST.gen.fecha||hoy())};
 const porFecha=(L,fila)=>{const F=[...new Set(L.map(fechaEq))].sort();if(F.length<2)return L.map(fila).join('');
- return F.map(f=>{const G=L.filter(q=>fechaEq(q)===f);return`<div class="bloqF">📅 ${esc(f)} · ${G.length} equipo${G.length>1?'s':''}${G.some(q=>!q.hecho)&&f===(ST.gen.fecha||hoy())?' <span class="muted">(incluye por generar)</span>':''}</div>`+G.map(fila).join('')}).join('')};
+ return F.map(f=>{const G=L.filter(q=>fechaEq(q)===f),pend=G.filter(q=>!q.hecho).length;return`<div class="bloqF">📅 Tomados el ${esc(f)} · ${G.length} equipo${G.length>1?'s':''}${pend?` <span class="muted">(${pend} por generar)</span>`:''}</div>`+G.map(fila).join('')}).join('')};
 function vEquipos(){
  const t=T(),cuenta=k=>ST.eqs.filter(q=>(q.tpl||ST.tpl)===k).length;
  return topbar('Equipos',`Paso 2 de 3 · ${esc(ST.cli.nombre||'Cliente')}`,'atrasCliente')+`<div class="content">
