@@ -17,7 +17,7 @@
    document.body.appendChild(d)})}})();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Metrología · Intelmedica v64</title>
+<title>Metrología · Intelmedica v65</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -919,7 +919,7 @@ function irAVacios(q){ST.editando=q.id;ST.marcarVacios=q.id;guardar();render();
 /* =================== vistas =================== */
 const PASOS=['cliente','equipos','generar'];
 // Versión visible junto al nombre: al subir una actualización se ve si ya cargó (debe coincidir con sw.js).
-const VERSION='v64';
+const VERSION='v65';
 // v39: instalar como app (igual que la Plataforma) y enlace al manual de usuario.
 const ESAPP=(()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}})();
 const IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -936,7 +936,7 @@ function vCliente(){
  const K=ST.cli,G=ST.gen;
  return topbar('Metrología Intelmedica','Paso 1 de 3 · Cliente y calibración')+`<div class="content">
  ${conectado()?'':`<div class="card hero"><img src="icon-192.png" alt=""><h2 style="margin:12px 0 6px">Toma de datos de calibración</h2><p class="muted small">Conéctese con la cuenta de Google de INTELMEDICA para usar la plantilla oficial y guardar en Drive. Puede llenar los datos sin conexión y generar después.</p><button class="btn navy" data-a="conectar">Conectar con Google</button></div>`}
- ${ST.volver&&HIST.some(h=>h.id===ST.volver.id)&&!ST.cli.nombre.trim()&&!ST.eqs.length?`<div class="card" style="border-left:4px solid var(--teal)"><div class="card-title">Toma de datos anterior</div><p class="small" style="margin-top:0">La toma de <b>${esc(ST.volver.cli||'el cliente anterior')}</b> ya tenía todos los certificados generados y quedó en el 📋 Historial.</p><button class="btn navy block" data-a="volverToma">↩ Volver a ${esc(ST.volver.cli||'la toma anterior')}</button></div>`:''}
+ ${ST.volver&&HIST.some(h=>h.id===ST.volver.id)&&!ST.cli.nombre.trim()&&!ST.eqs.length?`<div class="card" style="border-left:4px solid var(--teal)"><div class="card-title">Toma de datos anterior</div><p class="small" style="margin-top:0">La toma de <b>${esc(ST.volver.cli||'el cliente anterior')}</b> quedó guardada en el 📋 Historial.</p><button class="btn navy block" data-a="volverToma">↩ Volver a ${esc(ST.volver.cli||'la toma anterior')}</button></div>`:''}
  <div class="card"><div class="card-title">¿Qué equipo va a calibrar?</div><div class="tipos">${Object.entries(TIPOS).map(([k,t])=>`<button class="tipo ${ST.tpl===k?'on':''}" data-a="tipo" data-id="${k}"><b>${esc(t.tipo)}</b><span>${esc(ARCHIVOS[t.archivo].nombre.replace(/ PLANTILLA.*$/,''))}</span></button>`).join('')}</div>
  ${ST.tpl?`<p class="muted small" style="margin:8px 0 0">Plantilla: ${esc(A().nombre.replace(/\.xlsx$/,''))}</p>`:''}</div>
  <div class="card"><div class="card-title">Datos del cliente</div>
@@ -946,7 +946,7 @@ function vCliente(){
  <div class="g2">${fi('gen','recepcion','Fecha de recepción',G.recepcion,'type="date"')}${fi('gen','fecha','Fecha de calibración',G.fecha,'type="date"')}</div>
  <label>Lugar de calibración<select data-g="gen" data-k="lugar">${LUGARES.map(l=>`<option ${G.lugar===l?'selected':''}>${esc(l)}</option>`).join('')}</select></label>
  ${fi('gen','metrologo','Calibrado por',G.metrologo,'list="dlMet"')}<datalist id="dlMet">${METROLOGOS.map(m=>`<option value="${esc(m)}">`).join('')}</datalist></div></div>
- <div class="bottom"><div class="in"><button class="btn navy" data-a="paso" data-id="equipos" ${ST.cli.nombre.trim()&&ST.tpl?'':'disabled'} id="btnSig">Equipos →</button></div></div>`;
+ <div class="bottom"><div class="in">${ST.cli.nombre.trim()||ST.eqs.length?'<button class="btn ghost" data-a="clienteNuevo">＋ Cliente nuevo</button>':''}<button class="btn navy" data-a="paso" data-id="equipos" ${ST.cli.nombre.trim()&&ST.tpl?'':'disabled'} id="btnSig">Equipos →</button></div></div>`;
 }
 // v64: bloques por el DÍA EN QUE SE TOMÓ cada equipo (no por la fecha de calibración de la toma, que suele ser la misma
 // para todos). Equipos nuevos: q.fToma; los anteriores: el código del equipo (uid) guarda el instante en que se agregó.
@@ -1158,6 +1158,10 @@ const ACT={
  regenTodos:()=>run(async()=>{const L=ST.eqs.filter(q=>q.hecho&&generable(q));if(!L.length)return;
   if(!(await dialogo('Regenerar todos',`<p>Se volverán a generar <b>${L.length}</b> Excel con los datos actuales. Los que están en Drive se reemplazan.</p>`,[{t:'🔄 Regenerar todos',v:true,cls:'navy'},{t:'Cancelar',v:false,cls:'ghost'}])))return;
   let n=0;for(const q of L){try{await generar(q,m=>est(`(${n+1}/${L.length}) ${m}`));n++}catch(e){if(e instanceof AuthError)throw e;q.err=e.message;q.hecho='';guardar()}render()}toast(`${n} de ${L.length} Excel regenerado(s) ✔`)}),
+ // v65: desde el Paso 1. La toma actual queda en el 📋 Historial (con «↩ Volver a …») y se empieza en blanco.
+ clienteNuevo:()=>{const cli=ST.cli.nombre.trim()||'este cliente';if(!confirm(`¿Empezar con un cliente nuevo?\n\nLa toma de ${cli} queda guardada en el 📋 Historial; puede volver a ella cuando quiera.`))return;
+  if(!archivar(true)&&(ST.eqs.length||ST.cli.nombre.trim())&&!confirm('No se pudo guardar esta toma en el Historial (memoria llena). ¿Empezar de todas formas?'))return;
+  const g={...ST.gen},id=archivar.ultimo;ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;if(id&&HIST.some(h=>h.id===id))ST.volver={id,cli};VISTA='';guardar();render();scrollTo(0,0);toast('Toma guardada en el Historial ✔')},
  nueva:()=>{if(ST.eqs.some(q=>!q.hecho)&&!confirm('Hay equipos sin generar. ¿Empezar de nuevo de todas formas?'))return;if(ST.eqs.some(q=>q.hecho&&!q.cel)&&!confirm('Hay Excel que no se han guardado en el celular (carpeta METROLOGIA). ¿Empezar de nuevo de todas formas?'))return;if(ST.eqs.length&&!archivar()&&!confirm('No se pudo guardar esta toma de datos en el Historial (memoria llena). ¿Empezar de nuevo de todas formas?'))return;ST.eqs.forEach(q=>idbDel(q.id).catch(()=>{}));const g={...ST.gen};ST=estadoNuevo();ST.gen.metrologo=g.metrologo;ST.gen.lugar=g.lugar;guardar();render();scrollTo(0,0)}
 };
 document.addEventListener('click',ev=>{const b=ev.target.closest('[data-a]');if(!b||b.disabled)return;if(b.tagName==='A'&&b.href)return;ev.preventDefault();ACT[b.dataset.a]?.(b.dataset.id,b)});
